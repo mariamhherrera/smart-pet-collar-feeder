@@ -1,7 +1,7 @@
 
 /*
   HW-1.2 - Read Motion Values
-  Johan Quezada - ELEC/COEN 390
+  Johan Quezada 
   Smart Pet Collar and Feeder
 
   Reads acceleration and rotation from the MPU-6050
@@ -11,8 +11,11 @@
 #include <Wire.h>
 #include <Adafruit_MPU6050.h>
 #include <Adafruit_Sensor.h>
+#include <BluetoothSerial.h>
+
 
 Adafruit_MPU6050 mpu;
+BluetoothSerial SerialBT;
 
 const int SDA_PIN = 21;
 const int SCL_PIN = 22;
@@ -25,6 +28,13 @@ const float RAD_TO_DEGREES = 57.29578;
 
 void setup() {
   Serial.begin(115200);
+
+  // Start Bluetooth communication
+if (SerialBT.begin("PetCollar_ESP32")) {
+    Serial.println("Bluetooth started successfully!");
+} else {
+    Serial.println("Bluetooth initialization failed!");
+}
 
   // Start I2C communication
   Wire.begin(SDA_PIN, SCL_PIN);
@@ -91,5 +101,19 @@ void loop() {
     Serial.print(gy, 4);
     Serial.print(",");
     Serial.println(gz, 4);
+
+    // Send motion data over Bluetooth
+    if (SerialBT.hasClient()) {
+      char btData[120];
+
+      snprintf(btData, sizeof(btData),
+               "%.3f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f",
+               millis() / 1000.0,
+               ax, ay, az,
+               gx, gy, gz);
+
+      SerialBT.println(btData);
+    }
+
   }
 }

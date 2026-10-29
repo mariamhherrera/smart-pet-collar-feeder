@@ -8,6 +8,8 @@ Fake collar data is used to test two ways of guessing whether the pet is resting
 - `method_strength.py` (SIM-4.3): method 1, guesses from how strong the movement is.
 - `method_steps.py` (SIM-4.4): method 2, guesses from steps per second.
 - `compare_methods.py` (SIM-4.5): tests both methods on the same data and picks the best.
+- `tune_steps.py` (SIM-4.6): finds better cut-off lines for step counting.
+- `plot_results.py` (SIM-4.7): makes the graphs for the report and saves them in `results/`.
 
 ## How to run
 
@@ -15,6 +17,7 @@ Fake collar data is used to test two ways of guessing whether the pet is resting
 2. `source .venv/bin/activate`
 3. `pip install matplotlib` (first time only)
 4. `python simulation/compare_methods.py`
+5. `python simulation/plot_results.py` (makes the graphs)
 
 ## Results (SIM-4.5)
 
@@ -29,6 +32,16 @@ Thresholds were picked on seed 1. Both methods were then tested on new data: see
 | **Average** | **89.2 %** | **89.8 %** |
 
 **Best method: step counting (SIM-4.4).** Both methods meet the sprint goal of 80 %.
+
+## Graphs (SIM-4.7)
+
+What the fake collar data looks like for each activity:
+
+![Simulated collar data](results/activity_data.png)
+
+Accuracy of each method on new data. The orange bars use the tuned cut-off lines from SIM-4.6 (1.25 and 2.3 steps per second), which raise the average of step counting from 89.8 % to 90.8 %:
+
+![Accuracy of each method](results/accuracy.png)
 
 ## Notes
 

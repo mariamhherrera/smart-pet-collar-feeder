@@ -1,4 +1,4 @@
-oki gootime_s,x_g,y_g,z_g,activity
+time_s,x_g,y_g,z_g,activity
 0.0,0.03,0.0074,1.0138,running
 0.02,0.0175,-0.0168,1.2362,running
 0.04,-0.0225,0.0068,1.5042,running

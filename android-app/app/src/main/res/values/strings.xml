@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">pettracker</string>
+
+    <string-array name="pet_species">
+        <item>Select species</item>
+        <item>Dog</item>
+        <item>Cat</item>
+    </string-array>
+</resources>

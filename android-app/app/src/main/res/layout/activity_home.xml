@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true"
+    android:background="#F1F5F9">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="24dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="PetTracker"
+            android:textSize="30sp"
+            android:textStyle="bold"
+            android:textColor="#2563EB"
+            android:layout_marginBottom="8dp"/>
+
+        <TextView
+            android:id="@+id/textWelcome"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Welcome!"
+            android:textSize="16sp"
+            android:textColor="#475569"
+            android:layout_marginBottom="28dp"/>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="My Pet"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:textColor="#17243C"
+            android:layout_marginBottom="10dp"/>
+
+        <TextView
+            android:id="@+id/textPetName"
+            android:layout_width="match_parent"
+            android:layout_height="70dp"
+            android:text="No pet profile yet"
+            android:textSize="22sp"
+            android:textColor="#17243C"
+            android:background="#FFFFFF"
+            android:gravity="center_vertical"
+            android:padding="16dp"
+            android:layout_marginBottom="25dp"/>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Collar Connection"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:textColor="#17243C"
+            android:layout_marginBottom="10dp"/>
+
+        <TextView
+            android:id="@+id/textConnection"
+            android:layout_width="match_parent"
+            android:layout_height="65dp"
+            android:text="Disconnected"
+            android:textSize="18sp"
+            android:textColor="#DC2626"
+            android:background="#FFFFFF"
+            android:gravity="center_vertical"
+            android:padding="16dp"
+            android:layout_marginBottom="25dp"/>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Latest Activity"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:textColor="#17243C"
+            android:layout_marginBottom="10dp"/>
+
+        <TextView
+            android:id="@+id/textActivity"
+            android:layout_width="match_parent"
+            android:layout_height="65dp"
+            android:text="No data yet"
+            android:textSize="18sp"
+            android:textColor="#475569"
+            android:background="#FFFFFF"
+            android:gravity="center_vertical"
+            android:padding="16dp"
+            android:layout_marginBottom="28dp"/>
+
+        <Button
+            android:id="@+id/buttonProfile"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:text="Pet Profile"
+            android:textAllCaps="false"
+            android:backgroundTint="#2563EB"
+            android:layout_marginBottom="12dp"/>
+
+        <Button
+            android:id="@+id/buttonLogout"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:text="Logout"
+            android:textAllCaps="false"
+            android:backgroundTint="#64748B"/>
+
+    </LinearLayout>
+</ScrollView>

@@ -94,6 +94,15 @@
             android:layout_marginBottom="28dp"/>
 
         <Button
+            android:id="@+id/buttonSearchCollar"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:text="Search for collar"
+            android:textAllCaps="false"
+            android:backgroundTint="#0F766E"
+            android:layout_marginBottom="12dp"/>
+
+        <Button
             android:id="@+id/buttonProfile"
             android:layout_width="match_parent"
             android:layout_height="56dp"

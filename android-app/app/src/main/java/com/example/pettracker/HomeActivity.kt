@@ -1,20 +1,17 @@
 package com.example.pettracker
 
-iport android.Manifest
-import android.bluetooth.BluetoothAdapter
-import android.bluetooth.BluetoothManager
-import android.content.pm.PackageManager
-import android.os.Build
-import android.os.SystemClock
+import android.Manifest
 import android.app.Activity
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
-import androidx.core.app.ActivityCompact
 import androidx.core.content.ContextCompat
 import com.google.firebase.auth.FirebaseAuth
+import androidx.core.app.ActivityCompat
 
 class HomeActivity : Activity(), BluetoothSppClient.Listener {
 
@@ -124,8 +121,8 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
     }
 
     private fun startBluetooth() {
-        if (bluetoothClient != null) return
-        bluetoothClient = BluetoothSppClient(this, this).also { it.start() }
+        if (collarClient!= null) return
+        collarClient= BluetoothSppClient(this, this).also { it.start() }
     }
 
     private fun showPetInformation() {
@@ -148,14 +145,14 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
     }
 
     override fun onStatus(message: String, connected: Boolean) {
-        if (!::connectionText.isInitialized) return
-        connectionText.text = message
-        connectionText.setTextColor(if (connected) 0xFF15803D.toInt() else 0xFFDC2626.toInt())
+        if (!::textConnection.isInitialized) return
+        textConnection.text = message
+        textConnection.setTextColor(if (connected) 0xFF15803D.toInt() else 0xFFDC2626.toInt())
     }
 
     override fun onLineReceived(line: String) {
         val motion = CollarProtocol.parseMotion(line) ?: return
-        activityText.text = "Motion: ax %.2f  ay %.2f  az %.2f g".format(
+        textActivity.text= "Motion: ax %.2f  ay %.2f  az %.2f g".format(
             motion.ax, motion.ay, motion.az
         )
     }

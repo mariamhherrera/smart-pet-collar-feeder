@@ -4,7 +4,8 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fillViewport="true"
-    android:background="#F1F5F9">
+    android:fitsSystemWindows="true"
+    android:background="@color/background">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -17,58 +18,80 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="PetTracker"
-            android:textSize="32sp"
+            android:textSize="34sp"
             android:textStyle="bold"
-            android:textColor="#2563EB"
-            android:gravity="center"
-            android:layout_marginBottom="12dp"/>
+            android:textColor="@color/primary"
+            android:gravity="center" />
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="Smart collar and feeder for your pet"
+            android:textSize="14sp"
+            android:textColor="@color/text_secondary"
+            android:gravity="center" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="40dp"
+            android:layout_marginBottom="16dp"
             android:text="Welcome back!"
-            android:textSize="18sp"
-            android:textColor="#475569"
-            android:gravity="center"
-            android:layout_marginBottom="32dp"/>
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:textColor="@color/text_primary" />
 
         <EditText
             android:id="@+id/editLoginEmail"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:minHeight="56dp"
+            android:background="@drawable/bg_input"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
             android:hint="Email"
             android:inputType="textEmailAddress"
             android:singleLine="true"
-            android:layout_marginBottom="16dp"/>
+            android:textColor="@color/text_primary"
+            android:layout_marginBottom="12dp" />
 
         <EditText
             android:id="@+id/editLoginPassword"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:minHeight="56dp"
+            android:background="@drawable/bg_input"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
             android:hint="Password"
             android:inputType="textPassword"
             android:singleLine="true"
-            android:layout_marginBottom="24dp"/>
+            android:textColor="@color/text_primary"
+            android:layout_marginBottom="24dp" />
 
         <Button
             android:id="@+id/buttonLogin"
             android:layout_width="match_parent"
             android:layout_height="56dp"
+            android:background="@drawable/bg_primary_button"
             android:text="Login"
             android:textAllCaps="false"
-            android:backgroundTint="#2563EB"/>
+            android:textColor="#FFFFFF"
+            android:textSize="17sp"
+            android:textStyle="bold" />
 
         <Button
             android:id="@+id/buttonGoRegister"
             android:layout_width="match_parent"
             android:layout_height="56dp"
+            android:layout_marginTop="12dp"
+            android:background="@drawable/bg_secondary_button"
             android:text="Create an Account"
             android:textAllCaps="false"
-            android:backgroundTint="#64748B"
-            android:layout_marginTop="12dp"/>
+            android:textColor="@color/primary"
+            android:textSize="17sp"
+            android:textStyle="bold" />
 
     </LinearLayout>
 </ScrollView>
-

@@ -1,9 +1,25 @@
-<resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Base application theme. -->
-    <style name="Base.Theme.Pettracker" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Customize your light theme here. -->
-        <!-- <item name="colorPrimary">@color/my_light_primary</item> -->
+<resources>
+    <!-- PetTracker theme: same base the app already uses, plus our colors -->
+    <style name="Theme.Pettracker" parent="android:Theme.Material.Light.NoActionBar">
+        <!-- Main color: radio buttons, text field lines, highlights -->
+        <item name="android:colorPrimary">@color/primary</item>
+        <item name="android:colorPrimaryDark">@color/primary_dark</item>
+        <item name="android:colorAccent">@color/primary</item>
+        <item name="android:colorControlActivated">@color/primary</item>
+
+        <!-- Background of every screen, and the phone's top bar -->
+        <item name="android:windowBackground">@color/background</item>
+        <item name="android:statusBarColor">@color/primary_dark</item>
+
+        <!-- Default style for every button -->
+        <item name="android:buttonStyle">@style/Widget.Pettracker.Button</item>
     </style>
 
-    <style name="Theme.Pettracker" parent="Base.Theme.Pettracker" />
+    <!-- Rounded teal button with white text -->
+    <style name="Widget.Pettracker.Button" parent="android:Widget.Material.Button">
+        <item name="android:background">@drawable/bg_primary_button</item>
+        <item name="android:textColor">#FFFFFF</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:minHeight">52dp</item>
+    </style>
 </resources>

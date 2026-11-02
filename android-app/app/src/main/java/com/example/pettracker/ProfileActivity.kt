@@ -33,6 +33,7 @@ class ProfileActivity : Activity() {
         }
 
         setContentView(R.layout.activity_profile)
+        findViewById<android.view.View>(R.id.backButton).setOnClickListener { finish() }
 
         editName = findViewById(R.id.editPetName)
         spinnerSpecies = findViewById(R.id.spinnerSpecies)
@@ -44,18 +45,12 @@ class ProfileActivity : Activity() {
         val buttonSave =
             findViewById<Button>(R.id.buttonSaveProfile)
 
-        val buttonBack =
-            findViewById<Button>(R.id.buttonBackHome)
-
         loadProfile()
 
         buttonSave.setOnClickListener {
             saveProfile()
         }
 
-        buttonBack.setOnClickListener {
-            finish()
-        }
     }
 
     override fun onResume() {

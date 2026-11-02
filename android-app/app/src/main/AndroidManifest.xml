@@ -28,7 +28,7 @@
         android:allowBackup="false"
         android:label="PetTracker"
         android:supportsRtl="true"
-        android:theme="@android:style/Theme.Material.Light.NoActionBar">
+        android:theme="@style/Theme.Pettracker">
         <activity
             android:name=".ProfileActivity"
             android:exported="false" />
@@ -49,7 +49,7 @@
         </activity>
         <activity
             android:name=".feeder.ScheduleActivity"
-            android:exported="true"
+            android:exported="false"
             android:windowSoftInputMode="adjustResize" />
     </application>
 

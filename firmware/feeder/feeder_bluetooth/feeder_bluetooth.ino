@@ -1,18 +1,27 @@
 /*
   FD-2.2 - Send manual feed command (feeder side)
+  FD-1.3 - Send feeding command to the feeder (schedule)
   Isabel Al-Haddad
 
-  Step 9.4: overfeeding protection.
-  - A second FEED within 3 seconds is ignored (double taps).
+  Commands (one per line, from the phone or the Serial Monitor):
+    FEED                 feed one medium portion
+    FEED,<portion>       feed one portion: 1 = small, 2 = medium, 3 = large
+    SCHEDULE,HH:MM,<p>   save the daily feeding time and portion
+    TIME,HH:MM:SS        tell the feeder what time it is
+    STATUS               show the saved schedule, the time and today's feeds
+
+  Overfeeding protection:
+  - A second feed within 3 seconds is ignored (double taps).
   - At most 6 feeds per day.
-  Messages can come from the phone (Bluetooth) or the Serial Monitor (USB).
 */
 
 #include <BluetoothSerial.h>
+#include <Preferences.h>
 
-BluetoothSerial SerialBT;    
-String btMessage = "";       
-String usbMessage = "";      
+BluetoothSerial SerialBT;
+Preferences storage;         // saves the schedule in flash, so it survives a restart
+String btMessage = "";
+String usbMessage = "";
 
 // Overfeeding protection settings
 const unsigned long COOLDOWN_MS = 3000;            // 3 seconds between feeds
@@ -24,6 +33,17 @@ bool hasFedBefore = false;        // false until the first feed
 int feedsToday = 0;               // feeds since the start of the current day
 unsigned long dayStartTime = 0;   // when the current day started (in ms)
 
+// Saved schedule (FD-1.3)
+bool hasSchedule = false;
+int scheduleHour = 0;
+int scheduleMinute = 0;
+int schedulePortion = 2;          // 1 = small, 2 = medium, 3 = large
+
+// Clock (FD-1.3): the phone tells the feeder the time with TIME,HH:MM:SS
+bool clockSet = false;
+long secondsAtSync = 0;           // time of day (in seconds) when TIME was received
+unsigned long millisAtSync = 0;   // millis() when TIME was received
+
 // Sends a reply to both the phone and the Serial Monitor
 void reply(String text) {
   Serial.println(text);
@@ -32,10 +52,22 @@ void reply(String text) {
   }
 }
 
-// Gives one portion of food.
+// Writes a time as 07:30 instead of 7:30
+String twoDigits(int number) {
+  if (number < 10) return "0" + String(number);
+  return String(number);
+}
+
+// The current time of day in seconds (0 to 86399). Only correct once clockSet is true.
+long secondsOfDayNow() {
+  long passed = (millis() - millisAtSync) / 1000;
+  return (secondsAtSync + passed) % 86400;
+}
+
+// Gives one portion of food (1 = small, 2 = medium, 3 = large).
 // The motor code (FD-1.4) goes inside this function.
-void feedOnce() {
-  Serial.println("(motor would turn here)");
+void feedOnce(int portion) {
+  Serial.println("(motor would give portion " + String(portion) + " here)");
 }
 
 // Starts a new day once 24 hours have passed.
@@ -48,7 +80,7 @@ void startNewDayIfNeeded() {
 }
 
 // Checks the protection rules, then feeds if it is allowed
-void tryToFeed() {
+void tryToFeed(int portion) {
   startNewDayIfNeeded();
 
   // Rule 1: too soon after the last feed
@@ -63,20 +95,105 @@ void tryToFeed() {
     return;
   }
 
-  feedOnce();
+  feedOnce(portion);
   lastFeedTime = millis();
   hasFedBefore = true;
   feedsToday++;
   reply("OK FED " + String(feedsToday));
 }
 
+// Saves the schedule in flash and in the variables
+void saveSchedule(int hour, int minute, int portion) {
+  hasSchedule = true;
+  scheduleHour = hour;
+  scheduleMinute = minute;
+  schedulePortion = portion;
+
+  storage.putBool("has", true);
+  storage.putInt("hour", hour);
+  storage.putInt("minute", minute);
+  storage.putInt("portion", portion);
+}
+
+// Loads the schedule saved before the last restart (if any)
+void loadSchedule() {
+  hasSchedule = storage.getBool("has", false);
+  scheduleHour = storage.getInt("hour", 0);
+  scheduleMinute = storage.getInt("minute", 0);
+  schedulePortion = storage.getInt("portion", 2);
+}
+
+// FEED or FEED,<portion>
+void handleFeed(String msg) {
+  int portion = 2;                         // plain FEED = medium
+  if (msg != "FEED") {
+    if (sscanf(msg.c_str(), "FEED,%d", &portion) != 1 || portion < 1 || portion > 3) {
+      reply("ERR BAD FEED");
+      return;
+    }
+  }
+  tryToFeed(portion);
+}
+
+// SCHEDULE,HH:MM,<portion>   for example SCHEDULE,07:30,2
+void handleSchedule(String msg) {
+  int hour, minute, portion;
+  if (sscanf(msg.c_str(), "SCHEDULE,%d:%d,%d", &hour, &minute, &portion) != 3
+      || hour < 0 || hour > 23 || minute < 0 || minute > 59
+      || portion < 1 || portion > 3) {
+    reply("ERR BAD SCHEDULE");
+    return;
+  }
+  saveSchedule(hour, minute, portion);
+  reply("OK SCHEDULE " + twoDigits(hour) + ":" + twoDigits(minute) + " " + String(portion));
+}
+
+// TIME,HH:MM:SS   for example TIME,21:45:00
+void handleTime(String msg) {
+  int hour, minute, second;
+  if (sscanf(msg.c_str(), "TIME,%d:%d:%d", &hour, &minute, &second) != 3
+      || hour < 0 || hour > 23 || minute < 0 || minute > 59 || second < 0 || second > 59) {
+    reply("ERR BAD TIME");
+    return;
+  }
+  secondsAtSync = hour * 3600L + minute * 60L + second;
+  millisAtSync = millis();
+  clockSet = true;
+  reply("OK TIME");
+}
+
+// STATUS: shows what the feeder knows, to check that the other commands worked
+void handleStatus() {
+  String text = "STATUS";
+  if (hasSchedule) {
+    text += " schedule=" + twoDigits(scheduleHour) + ":" + twoDigits(scheduleMinute)
+          + " portion=" + String(schedulePortion);
+  } else {
+    text += " schedule=none";
+  }
+  if (clockSet) {
+    long now = secondsOfDayNow();
+    text += " time=" + twoDigits(now / 3600) + ":" + twoDigits((now / 60) % 60);
+  } else {
+    text += " time=unknown";
+  }
+  text += " feedsToday=" + String(feedsToday);
+  reply(text);
+}
+
 // Decides what to do with one full message.
 // This part stays the same if we add Firebase later.
 void handleCommand(String msg) {
-  msg.toUpperCase();              
+  msg.toUpperCase();
 
-  if (msg == "FEED") {
-    tryToFeed();
+  if (msg.startsWith("FEED")) {
+    handleFeed(msg);
+  } else if (msg.startsWith("SCHEDULE,")) {
+    handleSchedule(msg);
+  } else if (msg.startsWith("TIME,")) {
+    handleTime(msg);
+  } else if (msg == "STATUS") {
+    handleStatus();
   } else {
     reply("ERR UNKNOWN " + msg);
   }
@@ -88,8 +205,8 @@ void checkForMessage(Stream &source, String &message) {
   while (source.available()) {
     char letter = source.read();
 
-    if (letter == '\n') {            
-      message.trim();                
+    if (letter == '\n') {
+      message.trim();
       if (message.length() > 0) {
         handleCommand(message);
       }
@@ -102,6 +219,9 @@ void checkForMessage(Stream &source, String &message) {
 
 void setup() {
   Serial.begin(115200);
+
+  storage.begin("feeder", false);    // "feeder" is the name of our storage space
+  loadSchedule();
 
   if (SerialBT.begin("PetFeeder_ESP32")) {
     Serial.println("Bluetooth started! Waiting for messages...");

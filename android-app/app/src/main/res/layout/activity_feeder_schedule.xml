@@ -149,5 +149,76 @@
             android:text="No schedule saved yet"
             android:textColor="#475569"
             android:textSize="15sp" />
+        <!-- FD-2.1: Feed now -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Feed now"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:textColor="@color/text_primary"
+            android:layout_marginTop="24dp"
+            android:layout_marginBottom="8dp"/>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp"
+            android:background="@drawable/bg_card">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Give one portion right away, for example if a meal was missed."
+                android:textSize="14sp"
+                android:textColor="@color/text_secondary"
+                android:layout_marginBottom="12dp"/>
+
+            <RadioGroup
+                android:id="@+id/feedNowPortionGroup"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginBottom="16dp">
+
+                <RadioButton
+                    android:id="@+id/feedNowSmall"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Small"
+                    android:buttonTint="@color/primary"/>
+
+                <RadioButton
+                    android:id="@+id/feedNowMedium"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Medium"
+                    android:checked="true"
+                    android:buttonTint="@color/primary"/>
+
+                <RadioButton
+                    android:id="@+id/feedNowLarge"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Large"
+                    android:buttonTint="@color/primary"/>
+            </RadioGroup>
+
+            <Button
+                android:id="@+id/feedNowButton"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:text="Feed now"
+                android:textAllCaps="false"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="@color/primary"
+                android:background="@drawable/bg_secondary_button"/>
+        </LinearLayout>
+
     </LinearLayout>
 </ScrollView>

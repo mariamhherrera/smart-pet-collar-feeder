@@ -184,7 +184,7 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
     /** Called when Feed Now is tapped: sends FEED to the feeder. */
     private fun feedNow() {
         val link = feederLink ?: return
-        buttonFeedNow.isEnabled = false       // one tap = one command, no double taps
+        setFeedNowEnabled(false)              // one tap = one command, no double taps
         showFeederStatus("Sending…", true)
 
         feederSender.execute {
@@ -192,7 +192,7 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
             runOnUiThread {
                 if (!sent) showFeederStatus("Could not reach the feeder", false)
                 // Same 3 seconds as the feeder's cooldown, then the button works again
-                buttonFeedNow.postDelayed({ buttonFeedNow.isEnabled = feederConnected }, FEED_LOCK_MS)
+                buttonFeedNow.postDelayed({ setFeedNowEnabled(feederConnected) }, FEED_LOCK_MS)
             }
         }
     }
@@ -204,7 +204,7 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
             runOnUiThread {
                 if (number != feederConnectionNumber) return@runOnUiThread
                 feederConnected = state == LinkState.CONNECTED
-                buttonFeedNow.isEnabled = feederConnected
+                setFeedNowEnabled(feederConnected)
                 when (state) {
                     LinkState.CONNECTED -> showFeederStatus("Feeder connected", true)
                     LinkState.SEARCHING -> showFeederStatus("Searching for the feeder…", false)
@@ -223,6 +223,12 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
                 showFeederStatus(FeederMessage.screenText(reply), reply is FeederReply.Fed)
             }
         }
+    }
+
+    /** Turns Feed Now on or off. The teal button looks the same either way, so it is faded when off. */
+    private fun setFeedNowEnabled(enabled: Boolean) {
+        buttonFeedNow.isEnabled = enabled
+        buttonFeedNow.alpha = if (enabled) 1f else 0.5f
     }
 
     private fun showFeederStatus(message: String, good: Boolean) {

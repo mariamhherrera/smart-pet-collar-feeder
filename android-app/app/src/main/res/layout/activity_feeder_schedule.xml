@@ -22,6 +22,16 @@
             android:paddingEnd="24dp"
             android:paddingBottom="28dp">
 
+            <ImageButton
+            android:id="@+id/backButton"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:src="@drawable/ic_arrow_back"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Back"
+            android:layout_marginBottom="8dp"/>
+
+
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"

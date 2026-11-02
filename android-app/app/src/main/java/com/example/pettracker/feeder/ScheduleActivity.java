@@ -31,7 +31,8 @@ public class ScheduleActivity extends Activity {
         portionGroup = findViewById(R.id.portionGroup);
         currentScheduleText = findViewById(R.id.currentScheduleText);
         Button saveButton = findViewById(R.id.saveButton);
-
+     // Back arrow: closes this screen and returns to Home
+        findViewById(R.id.backButton).setOnClickListener(v -> finish());
         timePicker.setIs24HourView(true);
         storage = new ScheduleStorage(this);
 

@@ -4,24 +4,44 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fillViewport="true"
-    android:background="#F1F5F9">
+    android:fitsSystemWindows="true"
+    android:background="@color/background">
 
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="wrap_content"
         android:orientation="vertical"
         android:gravity="center"
         android:padding="24dp">
 
+        <!-- App name, same as the login screen -->
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Create Account"
-            android:textSize="30sp"
+            android:text="PetTracker"
+            android:textSize="34sp"
             android:textStyle="bold"
-            android:textColor="#2563EB"
+            android:textColor="@color/primary"
+            android:gravity="center"/>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Smart collar and feeder for your pet"
+            android:textSize="15sp"
+            android:textColor="@color/text_secondary"
             android:gravity="center"
-            android:layout_marginBottom="28dp"/>
+            android:layout_marginBottom="32dp"/>
+
+        <!-- Screen heading -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Create an account"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:textColor="@color/text_primary"
+            android:layout_marginBottom="16dp"/>
 
         <EditText
             android:id="@+id/editRegisterEmail"
@@ -31,6 +51,10 @@
             android:hint="Email"
             android:inputType="textEmailAddress"
             android:singleLine="true"
+            android:background="@drawable/bg_input"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:textColor="@color/text_primary"
             android:layout_marginBottom="14dp"/>
 
         <EditText
@@ -41,6 +65,10 @@
             android:hint="Password (8+ characters)"
             android:inputType="textPassword"
             android:singleLine="true"
+            android:background="@drawable/bg_input"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:textColor="@color/text_primary"
             android:layout_marginBottom="14dp"/>
 
         <EditText
@@ -48,26 +76,38 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:minHeight="56dp"
-            android:hint="Confirm Password"
+            android:hint="Confirm password"
             android:inputType="textPassword"
             android:singleLine="true"
+            android:background="@drawable/bg_input"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:textColor="@color/text_primary"
             android:layout_marginBottom="24dp"/>
 
+        <!-- Main button: teal, white text -->
         <Button
             android:id="@+id/buttonCreateAccount"
             android:layout_width="match_parent"
             android:layout_height="56dp"
             android:text="Register"
             android:textAllCaps="false"
-            android:backgroundTint="#2563EB"/>
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="#FFFFFF"
+            android:background="@drawable/bg_primary_button"/>
 
+        <!-- Second button: white with teal outline -->
         <Button
             android:id="@+id/buttonBackToLogin"
             android:layout_width="match_parent"
             android:layout_height="56dp"
-            android:text="Back to Login"
+            android:text="Back to login"
             android:textAllCaps="false"
-            android:backgroundTint="#64748B"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="@color/primary"
+            android:background="@drawable/bg_secondary_button"
             android:layout_marginTop="12dp"/>
 
     </LinearLayout>

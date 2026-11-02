@@ -93,6 +93,36 @@
             android:padding="16dp"
             android:layout_marginBottom="28dp"/>
 
+        <!-- Feeder (FD-2.1) -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Feeder"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:textColor="#17243C"
+            android:layout_marginBottom="10dp"/>
+
+        <TextView
+            android:id="@+id/textFeeder"
+            android:layout_width="match_parent"
+            android:layout_height="65dp"
+            android:text="Feeder disconnected"
+            android:textSize="18sp"
+            android:textColor="#DC2626"
+            android:background="#FFFFFF"
+            android:gravity="center_vertical"
+            android:padding="16dp"
+            android:layout_marginBottom="12dp"/>
+
+        <Button
+            android:id="@+id/buttonFeedNow"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Feed Now"
+            android:enabled="false"
+            android:layout_marginBottom="28dp"/>
+
         <Button
             android:id="@+id/buttonSearchCollar"
             android:layout_width="match_parent"

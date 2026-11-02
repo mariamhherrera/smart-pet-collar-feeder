@@ -28,6 +28,12 @@ interface Connection : Closeable {
      */
     fun readLine(): String?
 
+    /**
+     * Sends one line to the device. A newline is added at the end.
+     * Throws [IOException] when the link broke.
+     */
+    fun writeLine(line: String)
+
     /** Must not throw, and must be safe to call more than once. */
     override fun close()
 }
@@ -116,6 +122,23 @@ class BluetoothLink(
         closeQuietly(current)
         watchdog?.shutdownNow()
         thread?.interrupt()
+    }
+
+    /**
+     * Sends one line to the connected device, for example "FEED".
+     * Returns true when it was sent, false when no device is connected or sending failed.
+     * When sending fails, the connection is closed so the link reconnects.
+     * Safe to call from any thread, but it can block for a moment, so not from the main thread.
+     */
+    fun send(line: String): Boolean {
+        val connection = current ?: return false
+        return try {
+            connection.writeLine(line)
+            true
+        } catch (e: IOException) {
+            closeQuietly(connection) // makes readLine() in serve() fail, so the link reconnects
+            false
+        }
     }
 
     private fun loop() {

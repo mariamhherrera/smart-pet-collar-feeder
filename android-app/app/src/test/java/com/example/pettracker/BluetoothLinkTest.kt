@@ -31,6 +31,15 @@ class BluetoothLinkTest {
 
         @Volatile var closed = false
 
+        /** Lines the app sent to the device with writeLine(). */
+        val written = LinkedBlockingQueue<String>()
+        @Volatile var failWrites = false
+
+        override fun writeLine(line: String) {
+            if (closed || failWrites) throw IOException("link lost")
+            written.put(line)
+        }
+
         fun send(line: String) = events.put(line)
         fun breakLink() = events.put(BROKEN)
         fun closeFromDeviceSide() = events.put(END)
@@ -318,6 +327,42 @@ class BluetoothLinkTest {
 
         waitFor("the link to report STOPPED") { recorder.states.last() == LinkState.STOPPED }
         assertEquals(1, connector.searches.get())
+    }
+
+    @Test
+    fun sendsALineToTheConnectedDevice() {
+        startLink()
+
+        val connection = nextConnection()
+        waitFor("the link to be connected") { recorder.states.contains(LinkState.CONNECTED) }
+
+        assertTrue(link!!.send("FEED"))
+        assertEquals("FEED", connection.written.poll(WAIT_MS, TimeUnit.MILLISECONDS))
+    }
+
+    @Test
+    fun sendReturnsFalseWhenNotConnected() {
+        connector.visible = false
+        startLink()
+
+        waitFor("a search") { connector.searches.get() >= 1 }
+        assertFalse(link!!.send("FEED"))
+    }
+
+    @Test
+    fun reconnectsWhenSendingFails() {
+        startLink()
+
+        val first = nextConnection()
+        waitFor("the link to be connected") { recorder.states.contains(LinkState.CONNECTED) }
+        first.failWrites = true
+
+        assertFalse(link!!.send("FEED"))
+
+        val second = nextConnection()
+        assertTrue(first.closed)
+        waitFor("sending on the new connection") { link!!.send("FEED") }
+        assertEquals("FEED", second.written.poll(WAIT_MS, TimeUnit.MILLISECONDS))
     }
 
     @Test

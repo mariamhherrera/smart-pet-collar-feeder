@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#F1F5F9">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="24dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Pet Profile"
+            android:textSize="30sp"
+            android:textStyle="bold"
+            android:textColor="#2563EB"
+            android:layout_marginBottom="24dp"/>
+
+        <EditText
+            android:id="@+id/editPetName"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="56dp"
+            android:hint="Pet Name"
+            android:inputType="textCapWords"
+            android:layout_marginBottom="12dp"/>
+
+        <Spinner
+            android:id="@+id/spinnerSpecies"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:entries="@array/pet_species"
+            android:layout_marginBottom="12dp"/>
+
+        <EditText
+            android:id="@+id/editBreed"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="56dp"
+            android:hint="Breed"
+            android:inputType="textCapWords"
+            android:layout_marginBottom="12dp"/>
+
+        <EditText
+            android:id="@+id/editWeight"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="56dp"
+            android:hint="Weight (kg)"
+            android:inputType="numberDecimal"
+            android:layout_marginBottom="12dp"/>
+
+        <EditText
+            android:id="@+id/editAge"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="56dp"
+            android:hint="Age (years)"
+            android:inputType="numberDecimal"
+            android:layout_marginBottom="12dp"/>
+
+        <EditText
+            android:id="@+id/editHealth"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="90dp"
+            android:hint="Health Conditions (write None if none)"
+            android:inputType="textMultiLine"
+            android:gravity="top"
+            android:padding="12dp"
+            android:layout_marginBottom="24dp"/>
+
+        <Button
+            android:id="@+id/buttonSaveProfile"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:text="Save Profile"
+            android:textAllCaps="false"
+            android:backgroundTint="#2563EB"
+            android:layout_marginBottom="12dp"/>
+
+        <Button
+            android:id="@+id/buttonBackHome"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:text="Back to Home"
+            android:textAllCaps="false"
+            android:backgroundTint="#64748B"/>
+
+    </LinearLayout>
+</ScrollView>

@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true"
+    android:background="#F1F5F9">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:padding="24dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="PetTracker"
+            android:textSize="32sp"
+            android:textStyle="bold"
+            android:textColor="#2563EB"
+            android:gravity="center"
+            android:layout_marginBottom="12dp"/>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Welcome back!"
+            android:textSize="18sp"
+            android:textColor="#475569"
+            android:gravity="center"
+            android:layout_marginBottom="32dp"/>
+
+        <EditText
+            android:id="@+id/editLoginEmail"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="56dp"
+            android:hint="Email"
+            android:inputType="textEmailAddress"
+            android:singleLine="true"
+            android:layout_marginBottom="16dp"/>
+
+        <EditText
+            android:id="@+id/editLoginPassword"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="56dp"
+            android:hint="Password"
+            android:inputType="textPassword"
+            android:singleLine="true"
+            android:layout_marginBottom="24dp"/>
+
+        <Button
+            android:id="@+id/buttonLogin"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:text="Login"
+            android:textAllCaps="false"
+            android:backgroundTint="#2563EB"/>
+
+        <Button
+            android:id="@+id/buttonGoRegister"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:text="Create an Account"
+            android:textAllCaps="false"
+            android:backgroundTint="#64748B"
+            android:layout_marginTop="12dp"/>
+
+    </LinearLayout>
+</ScrollView>
+

@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true"
+    android:background="#F1F5F9">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:padding="24dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Create Account"
+            android:textSize="30sp"
+            android:textStyle="bold"
+            android:textColor="#2563EB"
+            android:gravity="center"
+            android:layout_marginBottom="28dp"/>
+
+        <EditText
+            android:id="@+id/editRegisterEmail"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="56dp"
+            android:hint="Email"
+            android:inputType="textEmailAddress"
+            android:singleLine="true"
+            android:layout_marginBottom="14dp"/>
+
+        <EditText
+            android:id="@+id/editRegisterPassword"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="56dp"
+            android:hint="Password (8+ characters)"
+            android:inputType="textPassword"
+            android:singleLine="true"
+            android:layout_marginBottom="14dp"/>
+
+        <EditText
+            android:id="@+id/editConfirmPassword"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="56dp"
+            android:hint="Confirm Password"
+            android:inputType="textPassword"
+            android:singleLine="true"
+            android:layout_marginBottom="24dp"/>
+
+        <Button
+            android:id="@+id/buttonCreateAccount"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:text="Register"
+            android:textAllCaps="false"
+            android:backgroundTint="#2563EB"/>
+
+        <Button
+            android:id="@+id/buttonBackToLogin"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:text="Back to Login"
+            android:textAllCaps="false"
+            android:backgroundTint="#64748B"
+            android:layout_marginTop="12dp"/>
+
+    </LinearLayout>
+</ScrollView>

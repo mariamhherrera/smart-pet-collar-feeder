@@ -10,6 +10,9 @@
     TIME,HH:MM:SS        tell the feeder what time it is
     STATUS               show the saved schedule, the time and today's feeds
 
+  At the scheduled time, the feeder feeds by itself and sends
+    SCHEDULED OK FED <n>   or   SCHEDULED ERR DAILY LIMIT
+
   Overfeeding protection:
   - A second feed within 3 seconds is ignored (double taps).
   - At most 6 feeds per day.
@@ -43,6 +46,9 @@ int schedulePortion = 2;          // 1 = small, 2 = medium, 3 = large
 bool clockSet = false;
 long secondsAtSync = 0;           // time of day (in seconds) when TIME was received
 unsigned long millisAtSync = 0;   // millis() when TIME was received
+long lastSecondsOfDay = 0;        // the time at the last check, to notice midnight
+bool scheduleDoneToday = false;   // true once today's scheduled meal was given (or tried)
+unsigned long lastClockCheck = 0; // millis() of the last check, to check once per second
 
 // Sends a reply to both the phone and the Serial Monitor
 void reply(String text) {
@@ -71,40 +77,44 @@ void feedOnce(int portion) {
 }
 
 // Starts a new day once 24 hours have passed.
-// Until the feeder knows the real time, a "day" starts when it is turned on.
+// Only used until the feeder knows the real time. After that, the day starts at midnight
+// (see checkClock).
 void startNewDayIfNeeded() {
+  if (clockSet) return;
   if (millis() - dayStartTime >= ONE_DAY_MS) {
     dayStartTime = millis();
     feedsToday = 0;
   }
 }
 
-// Checks the protection rules, then feeds if it is allowed
-void tryToFeed(int portion) {
+// Checks the protection rules, then feeds if it is allowed.
+// Returns the result: "OK FED <n>", "ERR COOLDOWN" or "ERR DAILY LIMIT".
+// useCooldown is false for the scheduled meal: it must not be skipped
+// just because someone tapped Feed Now a second before.
+String tryToFeed(int portion, bool useCooldown) {
   startNewDayIfNeeded();
 
   // Rule 1: too soon after the last feed
-  if (hasFedBefore && millis() - lastFeedTime < COOLDOWN_MS) {
-    reply("ERR COOLDOWN");
-    return;
+  if (useCooldown && hasFedBefore && millis() - lastFeedTime < COOLDOWN_MS) {
+    return "ERR COOLDOWN";
   }
 
-  // Rule 2: already fed the maximum today
+  // Rule 2: already fed the maximum today (the scheduled meal counts too)
   if (feedsToday >= MAX_FEEDS_PER_DAY) {
-    reply("ERR DAILY LIMIT");
-    return;
+    return "ERR DAILY LIMIT";
   }
 
   feedOnce(portion);
   lastFeedTime = millis();
   hasFedBefore = true;
   feedsToday++;
-  reply("OK FED " + String(feedsToday));
+  return "OK FED " + String(feedsToday);
 }
 
 // Saves the schedule in flash and in the variables
 void saveSchedule(int hour, int minute, int portion) {
   hasSchedule = true;
+  scheduleDoneToday = false;      // a new schedule can still happen today
   scheduleHour = hour;
   scheduleMinute = minute;
   schedulePortion = portion;
@@ -132,7 +142,7 @@ void handleFeed(String msg) {
       return;
     }
   }
-  tryToFeed(portion);
+  reply(tryToFeed(portion, true));
 }
 
 // SCHEDULE,HH:MM,<portion>   for example SCHEDULE,07:30,2
@@ -158,6 +168,7 @@ void handleTime(String msg) {
   }
   secondsAtSync = hour * 3600L + minute * 60L + second;
   millisAtSync = millis();
+  lastSecondsOfDay = secondsAtSync;
   clockSet = true;
   reply("OK TIME");
 }
@@ -179,6 +190,28 @@ void handleStatus() {
   }
   text += " feedsToday=" + String(feedsToday);
   reply(text);
+}
+
+// Called once per second. Starts a new day at midnight, and gives the
+// scheduled meal when the clock reaches the scheduled time.
+void checkClock() {
+  if (!clockSet) return;
+  long now = secondsOfDayNow();
+
+  // Midnight: the time jumped back from about 23:59 to about 00:00
+  if (now + 43200 < lastSecondsOfDay) {
+    feedsToday = 0;
+    scheduleDoneToday = false;
+  }
+  lastSecondsOfDay = now;
+
+  // The scheduled minute has come, and today's meal was not given yet
+  long scheduledSecond = scheduleHour * 3600L + scheduleMinute * 60L;
+  bool inScheduledMinute = now >= scheduledSecond && now < scheduledSecond + 60;
+  if (hasSchedule && !scheduleDoneToday && inScheduledMinute) {
+    scheduleDoneToday = true;     // only once, even if it fails
+    reply("SCHEDULED " + tryToFeed(schedulePortion, false));
+  }
 }
 
 // Decides what to do with one full message.
@@ -233,4 +266,9 @@ void setup() {
 void loop() {
   checkForMessage(SerialBT, btMessage);   // messages from the phone
   checkForMessage(Serial, usbMessage);    // messages typed in the Serial Monitor
+
+  if (millis() - lastClockCheck >= 1000) { // once per second
+    lastClockCheck = millis();
+    checkClock();
+  }
 }

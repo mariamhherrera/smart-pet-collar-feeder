@@ -110,7 +110,7 @@ public class ScheduleActivity extends Activity {
     // FD-2.1: ask first, so the pet doesn't get an extra meal by accident
     private void onFeedNowClicked() {
         int portion = getFeedNowPortion();
-        new AlertDialog.Builder(this)
+        new AlertDialog.Builder(this, android.R.style.Theme_Material_Light_Dialog_Alert)
                 .setTitle("Feed now?")
                 .setMessage("This gives your pet one " + portionName(portion).toLowerCase() + " portion right away.")
                 .setPositiveButton("Feed", (dialog, which) -> {

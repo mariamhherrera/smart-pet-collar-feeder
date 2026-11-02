@@ -111,10 +111,15 @@ String tryToFeed(int portion, bool useCooldown) {
   return "OK FED " + String(feedsToday);
 }
 
-// Saves the schedule in flash and in the variables
+// Saves the schedule in flash and in the variables.
+// The app sends the schedule every time it connects, so most of the time nothing changed:
+// then nothing is written, and today's meal is not given a second time.
 void saveSchedule(int hour, int minute, int portion) {
+  bool sameTime = hasSchedule && hour == scheduleHour && minute == scheduleMinute;
+  if (sameTime && portion == schedulePortion) return;   // nothing changed
+  if (!sameTime) scheduleDoneToday = false;              // a new time can still happen today
+
   hasSchedule = true;
-  scheduleDoneToday = false;      // a new schedule can still happen today
   scheduleHour = hour;
   scheduleMinute = minute;
   schedulePortion = portion;

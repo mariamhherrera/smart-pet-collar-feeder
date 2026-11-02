@@ -10,6 +10,9 @@ import android.app.Activity;
 import android.app.AlertDialog;
 
 import com.example.pettracker.R;
+import com.example.pettracker.bluetooth.FeederConnection;
+import com.example.pettracker.bluetooth.FeederMessage;
+import com.example.pettracker.bluetooth.FeederReply;
 
 /**FD-1.1: Screen where the owner picks the feeding time and portion.
  */
@@ -20,6 +23,7 @@ public class ScheduleActivity extends Activity {
     private TextView currentScheduleText;
     private ScheduleStorage storage;
     private RadioGroup feedNowPortionGroup;
+    private FeederConnection feeder;   // FD-1.3: Bluetooth connection to the feeder
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -42,6 +46,56 @@ public class ScheduleActivity extends Activity {
         feedNowPortionGroup = findViewById(R.id.feedNowPortionGroup);
         Button feedNowButton = findViewById(R.id.feedNowButton);
         feedNowButton.setOnClickListener(v -> onFeedNowClicked());
+
+        // FD-1.3: connection to the feeder, used by Save and Feed now
+        feeder = new FeederConnection(this, new FeederConnection.Listener() {
+            @Override
+            public void onConnectionChanged(boolean connected) {
+                if (connected) sendTimeAndSchedule();
+            }
+
+            @Override
+            public void onReply(FeederReply reply) {
+                if (reply instanceof FeederReply.TimeSet) return; // nothing to tell the owner
+                Toast.makeText(ScheduleActivity.this, FeederMessage.screenText(reply),
+                        Toast.LENGTH_SHORT).show();
+            }
+
+            @Override
+            public void onSendFailed() {
+                Toast.makeText(ScheduleActivity.this, "Could not reach the feeder",
+                        Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        feeder.start();
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        feeder.stop();
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        feeder.close();
+    }
+
+    /**FD-1.3: Gives the feeder the current time and the saved schedule.
+     * Called every time the feeder connects, so they are right even after it restarted.
+     */
+    private void sendTimeAndSchedule() {
+        feeder.send(FeederMessage.timeCommandNow());
+        if (storage.hasSchedule()) {
+            feeder.send(FeederMessage.scheduleCommand(
+                    storage.getHour(), storage.getMinute(), storage.getPortion()));
+        }
     }
 
     /**FD-1.2: If a schedule was saved before, show it on the screen.
@@ -66,11 +120,16 @@ public class ScheduleActivity extends Activity {
 
         storage.save(hour, minute, portion);
         showCurrentSchedule(hour, minute, portion);
-        Toast.makeText(this, "Schedule saved", Toast.LENGTH_SHORT).show();
 
-
-        // FD-1.3 (Isabel): send the schedule to the feeder here, e.g.
-        // "SCHEDULE," + formatTime(hour, minute) + "," + portion
+        // FD-1.3: send the schedule to the feeder. If it is not connected right now,
+        // sendTimeAndSchedule() sends the saved schedule as soon as it connects.
+        if (feeder.isConnected()) {
+            Toast.makeText(this, "Schedule saved", Toast.LENGTH_SHORT).show();
+            sendTimeAndSchedule();
+        } else {
+            Toast.makeText(this, "Schedule saved. It will be sent when the feeder connects.",
+                    Toast.LENGTH_LONG).show();
+        }
     }
 
     private void showCurrentSchedule(int hour, int minute, int portion) {
@@ -114,8 +173,12 @@ public class ScheduleActivity extends Activity {
                 .setTitle("Feed now?")
                 .setMessage("This gives your pet one " + portionName(portion).toLowerCase() + " portion right away.")
                 .setPositiveButton("Feed", (dialog, which) -> {
-                    Toast.makeText(this, "Feeding " + portionName(portion).toLowerCase() + " portion", Toast.LENGTH_SHORT).show();
-                    // FD-2.2: send the command to the feeder here, e.g. "FEED," + portion
+                    // FD-2.2: send the command to the feeder, e.g. FEED,2
+                    if (feeder.isConnected()) {
+                        feeder.send(FeederMessage.feedCommand(portion));
+                    } else {
+                        Toast.makeText(this, "Feeder not connected", Toast.LENGTH_SHORT).show();
+                    }
                 })
                 .setNegativeButton("Cancel", null)
                 .show();

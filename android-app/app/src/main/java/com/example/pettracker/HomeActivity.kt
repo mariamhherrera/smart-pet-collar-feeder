@@ -20,6 +20,7 @@ import com.example.pettracker.bluetooth.FeederReply
 import com.example.pettracker.bluetooth.LinkConfig
 import com.example.pettracker.bluetooth.LinkListener
 import com.example.pettracker.bluetooth.LinkState
+import com.example.pettracker.feeder.ScheduleStorage
 import java.util.concurrent.Executors
 
 class HomeActivity : Activity(), BluetoothSppClient.Listener {
@@ -205,6 +206,7 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
                 if (number != feederConnectionNumber) return@runOnUiThread
                 feederConnected = state == LinkState.CONNECTED
                 setFeedNowEnabled(feederConnected)
+                if (feederConnected) sendTimeAndSchedule()
                 when (state) {
                     LinkState.CONNECTED -> showFeederStatus("Feeder connected", true)
                     LinkState.SEARCHING -> showFeederStatus("Searching for the feeder…", false)
@@ -220,8 +222,28 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
                 if (number != feederConnectionNumber) return@runOnUiThread
                 // Turn the feeder's reply (like "OK FED 1") into a sentence for the owner
                 val reply = FeederMessage.parse(line) ?: return@runOnUiThread // not a reply, ignore it
-                showFeederStatus(FeederMessage.screenText(reply), reply is FeederReply.Fed)
+                // Answers to the automatic TIME and SCHEDULE: keep showing "Feeder connected"
+                if (reply is FeederReply.TimeSet || reply is FeederReply.ScheduleSaved) return@runOnUiThread
+                val good = reply is FeederReply.Fed || reply is FeederReply.ScheduledFed
+                showFeederStatus(FeederMessage.screenText(reply), good)
             }
+        }
+    }
+
+    /**
+     * FD-1.3: Gives the feeder the current time and the saved schedule, every time it connects.
+     * The feeder forgets the time when it restarts, and needs it to feed on schedule.
+     */
+    private fun sendTimeAndSchedule() {
+        val link = feederLink ?: return
+        val storage = ScheduleStorage(this)
+        val schedule =
+            if (storage.hasSchedule())
+                FeederMessage.scheduleCommand(storage.getHour(), storage.getMinute(), storage.getPortion())
+            else null
+        feederSender.execute {
+            link.send(FeederMessage.timeCommandNow())
+            if (schedule != null) link.send(schedule)
         }
     }
 

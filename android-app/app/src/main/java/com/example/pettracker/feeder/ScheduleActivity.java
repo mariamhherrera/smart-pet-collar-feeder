@@ -7,7 +7,7 @@ import android.widget.TextView;
 import android.widget.TimePicker;
 import android.widget.Toast;
 import android.app.Activity;
-
+import android.app.AlertDialog;
 
 import com.example.pettracker.R;
 
@@ -19,6 +19,7 @@ public class ScheduleActivity extends Activity {
     private RadioGroup portionGroup;
     private TextView currentScheduleText;
     private ScheduleStorage storage;
+    private RadioGroup feedNowPortionGroup;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -36,6 +37,10 @@ public class ScheduleActivity extends Activity {
 
         loadSavedSchedule();
         saveButton.setOnClickListener(v -> onSaveClicked());
+        // FD-2.1: Feed now
+        feedNowPortionGroup = findViewById(R.id.feedNowPortionGroup);
+        Button feedNowButton = findViewById(R.id.feedNowButton);
+        feedNowButton.setOnClickListener(v -> onFeedNowClicked());
     }
 
     /**FD-1.2: If a schedule was saved before, show it on the screen.
@@ -100,5 +105,29 @@ public class ScheduleActivity extends Activity {
         if (portion == 3) return "large";
         return "medium";
     }
+
+    // FD-2.1: ask first, so the pet doesn't get an extra meal by accident
+    private void onFeedNowClicked() {
+        int portion = getFeedNowPortion();
+        new AlertDialog.Builder(this)
+                .setTitle("Feed now?")
+                .setMessage("This gives your pet one " + portionName(portion).toLowerCase() + " portion right away.")
+                .setPositiveButton("Feed", (dialog, which) -> {
+                    Toast.makeText(this, "Feeding " + portionName(portion).toLowerCase() + " portion", Toast.LENGTH_SHORT).show();
+                    // FD-2.2: send the command to the feeder here, e.g. "FEED," + portion
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    // 1 = Small, 2 = Medium, 3 = Large (same numbers as the schedule)
+    private int getFeedNowPortion() {
+        int id = feedNowPortionGroup.getCheckedRadioButtonId();
+        if (id == R.id.feedNowSmall) return 1;
+        if (id == R.id.feedNowLarge) return 3;
+        return 2;
+    }
+
+
 }
 

@@ -15,6 +15,8 @@ import com.google.firebase.auth.FirebaseAuth
 import androidx.core.app.ActivityCompat
 import com.example.pettracker.bluetooth.BluetoothLink
 import com.example.pettracker.bluetooth.ClassicBluetoothConnector
+import com.example.pettracker.bluetooth.FeederMessage
+import com.example.pettracker.bluetooth.FeederReply
 import com.example.pettracker.bluetooth.LinkConfig
 import com.example.pettracker.bluetooth.LinkListener
 import com.example.pettracker.bluetooth.LinkState
@@ -164,7 +166,7 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
             showFeederStatus("This phone has no Bluetooth", false)
             return
         }
-        val connector = ClassicBluetoothConnector(this, adapter, FEEDER_NAME)
+        val connector = ClassicBluetoothConnector(this, adapter, FeederMessage.DEVICE_NAME)
         feederConnectionNumber++
         // No silence timeout: the feeder only talks when it answers a command
         feederLink = BluetoothLink(connector, LinkConfig(), feederListener(feederConnectionNumber))
@@ -186,7 +188,7 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
         showFeederStatus("Sending…", true)
 
         feederSender.execute {
-            val sent = link.send("FEED")
+            val sent = link.send(FeederMessage.FEED)
             runOnUiThread {
                 if (!sent) showFeederStatus("Could not reach the feeder", false)
                 // Same 3 seconds as the feeder's cooldown, then the button works again
@@ -214,10 +216,11 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
         }
 
         override fun onLine(line: String) {
-            // Step 8.3 shows the feeder's reply as it is. Step 8.4 turns it into a clear message.
             runOnUiThread {
                 if (number != feederConnectionNumber) return@runOnUiThread
-                showFeederStatus("Feeder: $line", true)
+                // Turn the feeder's reply (like "OK FED 1") into a sentence for the owner
+                val reply = FeederMessage.parse(line) ?: return@runOnUiThread // not a reply, ignore it
+                showFeederStatus(FeederMessage.screenText(reply), reply is FeederReply.Fed)
             }
         }
     }
@@ -228,7 +231,6 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
     }
 
     private companion object {
-        const val FEEDER_NAME = "PetFeeder_ESP32"
         const val FEED_LOCK_MS = 3_000L
     }
 

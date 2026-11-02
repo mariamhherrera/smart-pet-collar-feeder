@@ -2,6 +2,7 @@ package com.example.pettracker
 
 import android.Manifest
 import android.app.Activity
+import android.bluetooth.BluetoothManager
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
@@ -12,6 +13,14 @@ import android.widget.Toast
 import androidx.core.content.ContextCompat
 import com.google.firebase.auth.FirebaseAuth
 import androidx.core.app.ActivityCompat
+import com.example.pettracker.bluetooth.BluetoothLink
+import com.example.pettracker.bluetooth.ClassicBluetoothConnector
+import com.example.pettracker.bluetooth.FeederMessage
+import com.example.pettracker.bluetooth.FeederReply
+import com.example.pettracker.bluetooth.LinkConfig
+import com.example.pettracker.bluetooth.LinkListener
+import com.example.pettracker.bluetooth.LinkState
+import java.util.concurrent.Executors
 
 class HomeActivity : Activity(), BluetoothSppClient.Listener {
 
@@ -22,6 +31,14 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
     private lateinit var textActivity: TextView
     private lateinit var searchButton: Button
     private var permissionRequest = 410
+
+    // Feeder (FD-2.1): one Bluetooth link to PetFeeder_ESP32
+    private var feederLink: BluetoothLink? = null
+    private var feederConnected = false
+    private var feederConnectionNumber = 0 // goes up for every new connection, to ignore messages from old ones
+    private val feederSender = Executors.newSingleThreadExecutor() // sending can block, so not on the main thread
+    private lateinit var textFeeder: TextView
+    private lateinit var buttonFeedNow: Button
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -39,6 +56,9 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
         textConnection = findViewById(R.id.textConnection)
         textActivity = findViewById(R.id.textActivity)
         searchButton = findViewById(R.id.buttonSearchCollar)
+        textFeeder = findViewById(R.id.textFeeder)
+        buttonFeedNow = findViewById(R.id.buttonFeedNow)
+        buttonFeedNow.setOnClickListener { feedNow() }
 
         val buttonProfile =
             findViewById<Button>(R.id.buttonProfile)
@@ -61,6 +81,7 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
             // Logout from Firebase
             auth.signOut()
             collarClient?.stop()
+            stopFeeder()
             Toast.makeText(
                 this,
                 "Logged out successfully",
@@ -96,6 +117,12 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
         super.onPause()
         collarClient?.stop()
         collarClient = null
+        stopFeeder()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        feederSender.shutdown()
     }
 
     private fun hasBluetoothPermissions(): Boolean {
@@ -124,8 +151,93 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
     }
 
     private fun startBluetooth() {
+        startFeeder()
         if (collarClient!= null) return
         collarClient= BluetoothSppClient(this, this).also { it.start() }
+    }
+
+    // ---------- Feeder (FD-2.1) ----------
+
+    /** Starts connecting to the feeder in the background. */
+    private fun startFeeder() {
+        if (feederLink != null) return
+        val adapter = getSystemService(BluetoothManager::class.java)?.adapter
+        if (adapter == null) {
+            showFeederStatus("This phone has no Bluetooth", false)
+            return
+        }
+        val connector = ClassicBluetoothConnector(this, adapter, FeederMessage.DEVICE_NAME)
+        feederConnectionNumber++
+        // No silence timeout: the feeder only talks when it answers a command
+        feederLink = BluetoothLink(connector, LinkConfig(), feederListener(feederConnectionNumber))
+            .also { it.start() }
+    }
+
+    /** Disconnects from the feeder. A link can only be started once, so a new one is made next time. */
+    private fun stopFeeder() {
+        feederLink?.stop()
+        feederLink = null
+        feederConnected = false
+        feederConnectionNumber++ // from now on, messages from the old connection are ignored
+    }
+
+    /** Called when Feed Now is tapped: sends FEED to the feeder. */
+    private fun feedNow() {
+        val link = feederLink ?: return
+        setFeedNowEnabled(false)              // one tap = one command, no double taps
+        showFeederStatus("Sending…", true)
+
+        feederSender.execute {
+            val sent = link.send(FeederMessage.FEED)
+            runOnUiThread {
+                if (!sent) showFeederStatus("Could not reach the feeder", false)
+                // Same 3 seconds as the feeder's cooldown, then the button works again
+                buttonFeedNow.postDelayed({ setFeedNowEnabled(feederConnected) }, FEED_LOCK_MS)
+            }
+        }
+    }
+
+    // BluetoothLink calls these on its own thread, so every screen change goes through runOnUiThread.
+    // [number] is the connection this listener belongs to: messages from an older connection are ignored.
+    private fun feederListener(number: Int) = object : LinkListener {
+        override fun onState(state: LinkState, deviceName: String?) {
+            runOnUiThread {
+                if (number != feederConnectionNumber) return@runOnUiThread
+                feederConnected = state == LinkState.CONNECTED
+                setFeedNowEnabled(feederConnected)
+                when (state) {
+                    LinkState.CONNECTED -> showFeederStatus("Feeder connected", true)
+                    LinkState.SEARCHING -> showFeederStatus("Searching for the feeder…", false)
+                    LinkState.CONNECTING -> showFeederStatus("Connecting to the feeder…", false)
+                    LinkState.RECONNECTING -> showFeederStatus("Feeder lost. Reconnecting…", false)
+                    LinkState.STOPPED -> showFeederStatus("Feeder disconnected", false)
+                }
+            }
+        }
+
+        override fun onLine(line: String) {
+            runOnUiThread {
+                if (number != feederConnectionNumber) return@runOnUiThread
+                // Turn the feeder's reply (like "OK FED 1") into a sentence for the owner
+                val reply = FeederMessage.parse(line) ?: return@runOnUiThread // not a reply, ignore it
+                showFeederStatus(FeederMessage.screenText(reply), reply is FeederReply.Fed)
+            }
+        }
+    }
+
+    /** Turns Feed Now on or off. The teal button looks the same either way, so it is faded when off. */
+    private fun setFeedNowEnabled(enabled: Boolean) {
+        buttonFeedNow.isEnabled = enabled
+        buttonFeedNow.alpha = if (enabled) 1f else 0.5f
+    }
+
+    private fun showFeederStatus(message: String, good: Boolean) {
+        textFeeder.text = message
+        textFeeder.setTextColor(if (good) 0xFF15803D.toInt() else 0xFFDC2626.toInt())
+    }
+
+    private companion object {
+        const val FEED_LOCK_MS = 3_000L
     }
 
     private fun showPetInformation() {

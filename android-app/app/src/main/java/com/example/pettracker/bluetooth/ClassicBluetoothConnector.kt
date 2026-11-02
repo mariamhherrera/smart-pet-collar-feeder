@@ -162,8 +162,16 @@ class ClassicBluetoothConnector(
     ) : Connection {
 
         private val reader = LineReader(socket.inputStream)
+        private val output = socket.outputStream
 
         override fun readLine(): String? = reader.readLine()
+
+        // synchronized: two lines sent at the same time must not get mixed together
+        @Synchronized
+        override fun writeLine(line: String) {
+            output.write((line + "\n").toByteArray(Charsets.UTF_8))
+            output.flush()
+        }
 
         override fun close() {
             try {

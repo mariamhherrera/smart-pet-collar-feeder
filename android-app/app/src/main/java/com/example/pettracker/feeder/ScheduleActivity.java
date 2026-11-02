@@ -11,8 +11,7 @@ import android.app.Activity;
 
 import com.example.pettracker.R;
 
-/**
- * FD-1.1: Screen where the owner picks the feeding time and portion.
+/**FD-1.1: Screen where the owner picks the feeding time and portion.
  */
 public class ScheduleActivity extends Activity {
 
@@ -39,8 +38,7 @@ public class ScheduleActivity extends Activity {
         saveButton.setOnClickListener(v -> onSaveClicked());
     }
 
-    /**
-     * FD-1.2: If a schedule was saved before, show it on the screen.
+    /**FD-1.2: If a schedule was saved before, show it on the screen.
      */
     private void loadSavedSchedule() {
         if (!storage.hasSchedule()) {
@@ -64,6 +62,7 @@ public class ScheduleActivity extends Activity {
         showCurrentSchedule(hour, minute, portion);
         Toast.makeText(this, "Schedule saved", Toast.LENGTH_SHORT).show();
 
+
         // FD-1.3 (Isabel): send the schedule to the feeder here, e.g.
         // "SCHEDULE," + formatTime(hour, minute) + "," + portion
     }
@@ -73,15 +72,13 @@ public class ScheduleActivity extends Activity {
                 + ", " + portionName(portion) + " portion");
     }
 
-    /**
-      Time written as 07:30 instead of 7:30.
+    /**Time written as 07:30 instead of 7:30.
      */
     private String formatTime(int hour, int minute) {
         return String.format("%02d:%02d", hour, minute);
     }
 
-    /**
-     * Turns the selected button into 1 (small), 2 (mediu  m) or 3 (large).
+    /**Turns the selected button into 1 (small), 2 (medium) or 3 (large).
      */
     private int getSelectedPortion() {
         int checkedId = portionGroup.getCheckedRadioButtonId();
@@ -90,8 +87,7 @@ public class ScheduleActivity extends Activity {
         return 2;
     }
 
-    /**
-     * Selects the button that matches a saved portion.
+    /**Selects the button that matches a saved portion.
      */
     private void setSelectedPortion(int portion) {
         if (portion == 1) portionGroup.check(R.id.portionSmall);

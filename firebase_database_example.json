@@ -1,0 +1,79 @@
+{
+  "owners": {
+    "{firebase-auth-uid}": {
+      "collar": {
+        "status": {
+          "connected": true,
+          "deviceName": "PetCollar_ESP32",
+          "message": "Connected",
+          "updatedAt": 1760000000000
+        },
+        "latest": {
+          "deviceTimeSeconds": 12.345,
+          "accelerationG": {
+            "x": 0.01,
+            "y": 0.02,
+            "z": 0.99
+          },
+          "gyroscopeDegreesPerSecond": {
+            "x": 1.2,
+            "y": -0.3,
+            "z": 0.1
+          },
+          "receivedAt": 1760000000000
+        },
+        "readings": {
+          "{pushId}": {
+            "deviceTimeSeconds": 12.345,
+            "accelerationG": {
+              "x": 0.01,
+              "y": 0.02,
+              "z": 0.99
+            },
+            "gyroscopeDegreesPerSecond": {
+              "x": 1.2,
+              "y": -0.3,
+              "z": 0.1
+            },
+            "receivedAt": 1760000000000
+          }
+        }
+      },
+      "feeder": {
+        "status": {
+          "state": "CONNECTED",
+          "connected": true,
+          "deviceName": "PetFeeder_ESP32",
+          "updatedAt": 1760000000000
+        },
+        "commands": {
+          "{pushId}": {
+            "command": "FEED",
+            "source": "manual",
+            "status": "sent",
+            "createdAt": 1760000000000,
+            "updatedAt": 1760000000000
+          }
+        },
+        "replies": {
+          "{pushId}": {
+            "raw": "OK FED 1",
+            "resultType": "Fed",
+            "displayText": "Food given (1 meal today)",
+            "receivedAt": 1760000000000
+          }
+        }
+      },
+      "alerts": {
+        "{pushId}": {
+          "category": "daily_feed_limit",
+          "severity": "warning",
+          "message": "Daily limit reached",
+          "source": "feeder",
+          "createdAt": 1760000000000,
+          "read": false
+        }
+      }
+    }
+  }
+}

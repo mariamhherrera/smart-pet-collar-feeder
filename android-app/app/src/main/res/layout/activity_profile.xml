@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Profile screen (bottom bar): pet details and log out.
-     Same view ids as before for the form. -->
+<!-- UI-7.2 Edit pet profile: opened from the round profile icon in the top bar.
+     Same view ids as before for the form. Log out is on the Settings page. -->
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
@@ -151,45 +151,7 @@
                 android:stateListAnimator="@null"
                 android:layout_marginTop="20dp" />
 
-            <!-- ===== Account ===== -->
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Account"
-                style="@style/Pt.Label"
-                android:layout_marginTop="24dp"
-                android:layout_marginBottom="8dp"
-                android:layout_marginStart="4dp" />
-
-            <LinearLayout
-                style="@style/Pt.Card"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:padding="6dp">
-
-                <TextView
-                    android:id="@+id/textAccountEmail"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text=""
-                    style="@style/Pt.Body"
-                    android:textSize="14sp"
-                    android:paddingStart="12dp"
-                    android:paddingEnd="12dp"
-                    android:paddingTop="12dp"
-                    android:paddingBottom="8dp" />
-
-                <Button
-                    android:id="@+id/buttonLogout"
-                    style="@style/Pt.RowButton"
-                    android:text="Log out"
-                    android:textColor="@color/heart"
-                    android:drawableStart="@drawable/ic_logout"
-                    android:drawableTint="@color/heart" />
-            </LinearLayout>
-
         </LinearLayout>
     </ScrollView>
 
-    <include layout="@layout/bottom_nav" />
 </LinearLayout>

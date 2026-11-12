@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Collar screen: connection, heart rate and activity (COL-2, COL-5). -->
+<!-- UI-5 Collar vitals page: connection, battery, heart rate with normal range, activity. -->
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
@@ -65,12 +65,39 @@
                             android:id="@+id/textCollarStatus"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:text="Disconnected"
+                            android:text="Waiting for the collar"
                             android:textSize="13sp"
-                            android:textColor="#DC2626"
+                            android:textColor="@color/text_secondary"
                             android:fontFamily="@font/plus_jakarta_sans_semibold"
                             android:layout_marginTop="2dp" />
                     </LinearLayout>
+                </LinearLayout>
+
+                <!-- Battery, once the collar sends it -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:background="@drawable/bg_tile"
+                    android:padding="12dp"
+                    android:layout_marginTop="16dp">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Battery"
+                        style="@style/Pt.Title"
+                        android:textSize="14sp" />
+
+                    <TextView
+                        android:id="@+id/textCollarBattery"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="--%"
+                        style="@style/Pt.Body"
+                        android:textSize="14sp" />
                 </LinearLayout>
 
                 <Button
@@ -78,7 +105,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="44dp"
                     android:minHeight="44dp"
-                    android:text="Search for collar"
+                    android:text="Connect by Bluetooth (backup)"
                     android:textSize="14sp"
                     android:textColor="@color/primary"
                     android:background="@drawable/bg_secondary_button"
@@ -115,9 +142,10 @@
                 </LinearLayout>
 
                 <LinearLayout
-                    android:layout_width="wrap_content"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
+                    android:gravity="center_vertical"
                     android:layout_marginTop="12dp">
 
                     <TextView
@@ -135,15 +163,38 @@
                         style="@style/Pt.Label"
                         android:textSize="13sp"
                         android:layout_marginStart="6dp" />
+
+                    <View
+                        android:layout_width="0dp"
+                        android:layout_height="1dp"
+                        android:layout_weight="1" />
+
+                    <!-- UI-5.3: Low (blue), Normal (green) or High (red) -->
+                    <TextView
+                        android:id="@+id/textHeartRateLevel"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text=""
+                        android:textSize="14sp"
+                        android:fontFamily="@font/plus_jakarta_sans_bold" />
                 </LinearLayout>
+
+                <!-- UI-5.1: the normal range for the pet's species -->
+                <TextView
+                    android:id="@+id/textHeartRateRange"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Normal for a dog: 70 to 120 BPM"
+                    style="@style/Pt.Body"
+                    android:textSize="12sp"
+                    android:layout_marginTop="4dp" />
 
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="Most accurate while your pet is resting"
                     style="@style/Pt.Body"
-                    android:textSize="12sp"
-                    android:layout_marginTop="4dp" />
+                    android:textSize="12sp" />
             </LinearLayout>
 
             <!-- ===== Activity right now (COL-2.2 fills in the label) ===== -->
@@ -169,7 +220,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Activity now"
+                        android:text="Live motion"
                         style="@style/Pt.Label"
                         android:layout_marginStart="10dp" />
                 </LinearLayout>
@@ -188,7 +239,7 @@
                     android:id="@+id/textCollarMotion"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Waiting for the collar"
+                    android:text=""
                     style="@style/Pt.Body"
                     android:textSize="12sp"
                     android:layout_marginTop="4dp" />

@@ -2,6 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
 
     <!-- Android 11 and earlier Bluetooth permissions -->
     <uses-permission
@@ -37,6 +39,12 @@
             android:exported="false" />
         <activity
             android:name=".CollarActivity"
+            android:exported="false" />
+        <activity
+            android:name=".HistoryActivity"
+            android:exported="false" />
+        <activity
+            android:name=".SettingsActivity"
             android:exported="false" />
         <activity
             android:name=".RegisterActivity"

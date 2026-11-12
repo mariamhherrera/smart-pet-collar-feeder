@@ -3,14 +3,16 @@ package com.example.pettracker
 import android.app.Activity
 import android.content.Intent
 import android.content.res.ColorStateList
+import android.view.View
 import android.widget.ImageView
 import android.widget.TextView
 import com.example.pettracker.feeder.ScheduleActivity
 
 /**
- * Bottom bar with the 4 main screens: Home, Feeder, Collar, Profile.
+ * UI-3.3 Page navigation: bottom bar with the 5 main pages (Home, Feeder, Collar, History,
+ * Settings), and the round profile icon in the top bar (UI-7.1).
  *
- * Every main screen includes layout/bottom_nav.xml and layout/top_bar.xml,
+ * Every main page includes layout/top_bar.xml and layout/bottom_nav.xml,
  * then calls BottomNav.setUp(this, BottomNav.FEEDER) (with its own tab) in onCreate.
  *
  * Home always stays open underneath. Opening another tab closes the tab you
@@ -21,26 +23,50 @@ object BottomNav {
     const val HOME = 0
     const val FEEDER = 1
     const val COLLAR = 2
-    const val PROFILE = 3
+    const val HISTORY = 3
+    const val SETTINGS = 4
 
-    private val titles = arrayOf("Home", "Feeder", "Collar", "Profile")
+    private val titles = arrayOf("Home", "Feeder", "Collar", "History", "Settings")
 
+    private val tabs = arrayOf(
+        intArrayOf(HOME, R.id.navHome, R.id.navHomeIcon, R.id.navHomeText),
+        intArrayOf(FEEDER, R.id.navFeeder, R.id.navFeederIcon, R.id.navFeederText),
+        intArrayOf(COLLAR, R.id.navCollar, R.id.navCollarIcon, R.id.navCollarText),
+        intArrayOf(HISTORY, R.id.navHistory, R.id.navHistoryIcon, R.id.navHistoryText),
+        intArrayOf(SETTINGS, R.id.navSettings, R.id.navSettingsIcon, R.id.navSettingsText)
+    )
+
+    /** For the 5 main pages: page name, profile icon, and the bottom bar. */
     @JvmStatic
     fun setUp(activity: Activity, current: Int) {
         activity.findViewById<TextView>(R.id.topBarTitle)?.text = titles[current]
 
-        setUpTab(activity, current, HOME, R.id.navHome, R.id.navHomeIcon, R.id.navHomeText)
-        setUpTab(activity, current, FEEDER, R.id.navFeeder, R.id.navFeederIcon, R.id.navFeederText)
-        setUpTab(activity, current, COLLAR, R.id.navCollar, R.id.navCollarIcon, R.id.navCollarText)
-        setUpTab(activity, current, PROFILE, R.id.navProfile, R.id.navProfileIcon, R.id.navProfileText)
+        // Profile icon: opens the pet profile on top of this page (Back returns here)
+        activity.findViewById<View>(R.id.topBarProfile)?.setOnClickListener {
+            activity.startActivity(Intent(activity, ProfileActivity::class.java))
+        }
+
+        for (tab in tabs) setUpTab(activity, current, tab[0], tab[1], tab[2], tab[3])
+    }
+
+    /** For a page opened from a main page (the pet profile): back arrow instead of the logo. */
+    @JvmStatic
+    fun setUpDetail(activity: Activity, title: String) {
+        activity.findViewById<TextView>(R.id.topBarTitle)?.text = title
+        activity.findViewById<View>(R.id.topBarLogo)?.visibility = View.GONE
+        activity.findViewById<View>(R.id.topBarProfile)?.visibility = View.GONE
+        activity.findViewById<View>(R.id.topBarBack)?.apply {
+            visibility = View.VISIBLE
+            setOnClickListener { activity.finish() }
+        }
     }
 
     private fun setUpTab(activity: Activity, current: Int, tab: Int,
                          tabId: Int, iconId: Int, textId: Int) {
-        val icon = activity.findViewById<ImageView>(iconId)
+        val icon = activity.findViewById<ImageView>(iconId) ?: return
         val text = activity.findViewById<TextView>(textId)
 
-        // The open screen's tab is teal, with a light pill behind the icon
+        // The open page's tab is teal, with a light pill behind the icon
         if (tab == current) {
             val teal = activity.getColor(R.color.primary)
             icon.imageTintList = ColorStateList.valueOf(teal)
@@ -48,7 +74,7 @@ object BottomNav {
             text.setTextColor(teal)
         }
 
-        activity.findViewById<android.view.View>(tabId).setOnClickListener {
+        activity.findViewById<View>(tabId).setOnClickListener {
             if (tab != current) open(activity, current, tab)
         }
     }
@@ -57,7 +83,8 @@ object BottomNav {
         val screen = when (tab) {
             FEEDER -> ScheduleActivity::class.java
             COLLAR -> CollarActivity::class.java
-            PROFILE -> ProfileActivity::class.java
+            HISTORY -> HistoryActivity::class.java
+            SETTINGS -> SettingsActivity::class.java
             else -> HomeActivity::class.java
         }
         val intent = Intent(activity, screen)

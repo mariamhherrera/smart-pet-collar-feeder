@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Top bar: logo, app name and the screen name (set with BottomNav.setUp). -->
+<!-- Top bar: logo, app name, page name, and the round profile icon (UI-7.1).
+     On the pet profile page the logo becomes a back arrow (BottomNav.setUpDetail). -->
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
@@ -13,6 +14,17 @@
     android:paddingBottom="14dp">
 
     <ImageView
+        android:id="@+id/topBarBack"
+        style="@style/Pt.Icon"
+        android:padding="8dp"
+        android:background="@drawable/bg_row"
+        android:src="@drawable/ic_arrow_back"
+        android:tint="@color/text_primary"
+        android:visibility="gone"
+        android:contentDescription="Back" />
+
+    <ImageView
+        android:id="@+id/topBarLogo"
         style="@style/Pt.Icon"
         android:background="@drawable/bg_icon_logo"
         android:src="@drawable/ic_pets"
@@ -20,8 +32,9 @@
         android:contentDescription="PetTracker logo" />
 
     <LinearLayout
-        android:layout_width="wrap_content"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
+        android:layout_weight="1"
         android:orientation="vertical"
         android:layout_marginStart="12dp">
 
@@ -40,4 +53,14 @@
             style="@style/Pt.Title"
             android:textSize="18sp" />
     </LinearLayout>
+
+    <!-- UI-7.1: profile icon, opens the pet profile -->
+    <ImageView
+        android:id="@+id/topBarProfile"
+        style="@style/Pt.Icon"
+        android:padding="8dp"
+        android:background="@drawable/bg_icon_teal"
+        android:src="@drawable/ic_person"
+        android:tint="@color/primary"
+        android:contentDescription="Pet profile" />
 </LinearLayout>

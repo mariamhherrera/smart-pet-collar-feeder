@@ -10,6 +10,8 @@ import android.app.Activity;
 import android.app.AlertDialog;
 
 import com.example.pettracker.BottomNav;
+import com.example.pettracker.MealLimit;
+import com.example.pettracker.SettingsStorage;
 import com.example.pettracker.R;
 import com.example.pettracker.bluetooth.FeederConnection;
 import com.example.pettracker.bluetooth.FeederMessage;
@@ -26,6 +28,8 @@ public class ScheduleActivity extends Activity {
     private RadioGroup feedNowPortionGroup;
     private FeederConnection feeder;   // FD-1.3: Bluetooth connection to the feeder
     private TextView feederStatusText;
+    // UI-8.3: meals the feeder says it gave today ("OK FED 2" = 2), -1 = not known yet
+    private int feederMealsToday = -1;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -61,6 +65,8 @@ public class ScheduleActivity extends Activity {
             @Override
             public void onReply(FeederReply reply) {
                 if (reply instanceof FeederReply.TimeSet) return; // nothing to tell the owner
+                if (reply instanceof FeederReply.Fed) feederMealsToday = ((FeederReply.Fed) reply).getFeedsToday();
+                if (reply instanceof FeederReply.ScheduledFed) feederMealsToday = ((FeederReply.ScheduledFed) reply).getFeedsToday();
                 Toast.makeText(ScheduleActivity.this, FeederMessage.screenText(reply),
                         Toast.LENGTH_SHORT).show();
             }
@@ -178,6 +184,13 @@ public class ScheduleActivity extends Activity {
 
     // FD-2.1: ask first, so the pet doesn't get an extra meal by accident
     private void onFeedNowClicked() {
+        // UI-8.3: stop at the daily meal limit from Settings
+        int limit = new SettingsStorage(this).getMealLimit();
+        if (!MealLimit.canFeed(Math.max(feederMealsToday, 0), limit)) {
+            Toast.makeText(this, "Daily limit reached (" + feederMealsToday + " of " + limit
+                    + " meals). You can change it in Settings.", Toast.LENGTH_LONG).show();
+            return;
+        }
         int portion = getFeedNowPortion();
         new AlertDialog.Builder(this, android.R.style.Theme_Material_Light_Dialog_Alert)
                 .setTitle("Feed now?")

@@ -1,0 +1,238 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- UI-8 Settings page: meal limit, alerts, and account (log out).
+     Top bar and bottom bar are shared with the other main pages. -->
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:fitsSystemWindows="true"
+    android:background="@color/background">
+
+    <include layout="@layout/top_bar" />
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp"
+            android:paddingTop="20dp"
+            android:paddingBottom="32dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Feeding"
+                style="@style/Pt.Label"
+                android:layout_marginTop="0dp"
+                android:layout_marginBottom="8dp"
+                android:layout_marginStart="4dp" />
+
+            <!-- UI-8.3: most meals per day. Feed Now stops at this number. -->
+            <LinearLayout
+                style="@style/Pt.Card"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Meals per day"
+                            style="@style/Pt.Title" />
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Feed now stops at this number"
+                            style="@style/Pt.Body"
+                            android:textSize="12sp" />
+                    </LinearLayout>
+
+                    <Button
+                        android:id="@+id/buttonMealLimitMinus"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:minWidth="0dp"
+                        android:minHeight="0dp"
+                        android:padding="0dp"
+                        android:text="−"
+                        android:textSize="22sp"
+                        android:textColor="@color/primary"
+                        android:background="@drawable/bg_tile"
+                        android:stateListAnimator="@null" />
+
+                    <TextView
+                        android:id="@+id/textMealLimit"
+                        android:layout_width="44dp"
+                        android:layout_height="wrap_content"
+                        android:gravity="center"
+                        android:text="3"
+                        style="@style/Pt.Metric"
+                        android:textSize="22sp" />
+
+                    <Button
+                        android:id="@+id/buttonMealLimitPlus"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:minWidth="0dp"
+                        android:minHeight="0dp"
+                        android:padding="0dp"
+                        android:text="+"
+                        android:textSize="22sp"
+                        android:textColor="@color/primary"
+                        android:background="@drawable/bg_tile"
+                        android:stateListAnimator="@null" />
+
+                </LinearLayout>
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Alerts"
+                style="@style/Pt.Label"
+                android:layout_marginTop="24dp"
+                android:layout_marginBottom="8dp"
+                android:layout_marginStart="4dp" />
+
+            <LinearLayout
+                style="@style/Pt.Card"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Low food alert"
+                    style="@style/Pt.Title" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Warn me when the food container is below"
+                    style="@style/Pt.Body"
+                    android:textSize="12sp" />
+
+                <RadioGroup
+                    android:id="@+id/lowFoodGroup"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginTop="12dp"
+                    android:layout_marginStart="-4dp"
+                    android:layout_marginEnd="-4dp">
+
+                    <RadioButton
+                        android:id="@+id/lowFood10"
+                        style="@style/Pt.Chip"
+                        android:text="10%" />
+
+                    <RadioButton
+                        android:id="@+id/lowFood20"
+                        style="@style/Pt.Chip"
+                        android:checked="true"
+                        android:text="20%" />
+
+                    <RadioButton
+                        android:id="@+id/lowFood30"
+                        style="@style/Pt.Chip"
+                        android:text="30%" />
+                </RadioGroup>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:background="@color/card_border"
+                    android:layout_marginTop="16dp"
+                    android:layout_marginBottom="12dp" />
+
+                <Switch
+                    android:id="@+id/switchHeartAlerts"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:checked="true"
+                    android:text="Warn me when the heart rate is outside the normal range"
+                    android:textSize="14sp"
+                    android:textColor="@color/text_primary"
+                    android:fontFamily="@font/plus_jakarta_sans_semibold" />
+            </LinearLayout>
+
+            <!-- UI-8.2: saves on the phone and in Firebase -->
+            <Button
+                android:id="@+id/buttonSaveSettings"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:text="Save settings"
+                android:textSize="16sp"
+                android:stateListAnimator="@null"
+                android:layout_marginTop="20dp" />
+
+            <TextView
+                android:id="@+id/textSettingsSaved"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:text=""
+                style="@style/Pt.Body"
+                android:layout_marginTop="8dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Account"
+                style="@style/Pt.Label"
+                android:layout_marginTop="24dp"
+                android:layout_marginBottom="8dp"
+                android:layout_marginStart="4dp" />
+
+            <LinearLayout
+                style="@style/Pt.Card"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:padding="6dp">
+
+                <TextView
+                    android:id="@+id/textAccountEmail"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text=""
+                    style="@style/Pt.Body"
+                    android:textSize="14sp"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="12dp"
+                    android:paddingTop="12dp"
+                    android:paddingBottom="8dp" />
+
+                <Button
+                    android:id="@+id/buttonLogout"
+                    style="@style/Pt.RowButton"
+                    android:text="Log out"
+                    android:textColor="@color/heart"
+                    android:drawableStart="@drawable/ic_logout"
+                    android:drawableTint="@color/heart" />
+            </LinearLayout>
+
+        </LinearLayout>
+    </ScrollView>
+
+    <include layout="@layout/bottom_nav" />
+</LinearLayout>

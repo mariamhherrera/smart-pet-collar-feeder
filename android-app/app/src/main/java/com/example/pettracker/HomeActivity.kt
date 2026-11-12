@@ -188,7 +188,8 @@ class HomeActivity : Activity() {
                 // Turn the feeder's reply (like "OK FED 1") into a sentence for the owner
                 val reply = FeederMessage.parse(line) ?: return@runOnUiThread // not a reply, ignore it
                 // Answers to the automatic TIME and SCHEDULE: keep showing "Feeder connected"
-                if (reply is FeederReply.TimeSet || reply is FeederReply.ScheduleSaved) return@runOnUiThread
+                if (reply is FeederReply.TimeSet || reply is FeederReply.ScheduleSaved ||
+                    reply is FeederReply.LimitSet) return@runOnUiThread
                 val good = reply is FeederReply.Fed || reply is FeederReply.ScheduledFed
                 showFeederStatus(FeederMessage.screenText(reply), good)
             }
@@ -206,8 +207,10 @@ class HomeActivity : Activity() {
             if (storage.hasSchedule())
                 FeederMessage.scheduleCommand(storage.getHour(), storage.getMinute(), storage.getPortion())
             else null
+        val limit = FeederMessage.limitCommand(SettingsStorage(this).mealLimit) // UI-8.3
         feederSender.execute {
             link.send(FeederMessage.timeCommandNow())
+            link.send(limit)
             if (schedule != null) link.send(schedule)
         }
     }
@@ -266,10 +269,10 @@ class HomeActivity : Activity() {
     /** UI-8.3: "1 of 3 meals today", using the limit from Settings. */
     private fun showMealsToday() {
         val limit = SettingsStorage(this).mealLimit
-        textMealsToday.text = "$mealsToday of $limit meals today"
-        textMealsToday.setTextColor(
-            if (MealLimit.canFeed(mealsToday, limit)) getColor(R.color.text_secondary) else 0xFFDC2626.toInt()
-        )
+        // UI-8.3: a warning once the limit is reached (the feeder skips scheduled meals too)
+        val reached = !MealLimit.canFeed(mealsToday, limit)
+        textMealsToday.text = if (reached) "Limit reached ($mealsToday of $limit)" else "$mealsToday of $limit meals today"
+        textMealsToday.setTextColor(if (reached) 0xFFDC2626.toInt() else getColor(R.color.text_secondary))
     }
 
     /** Collar tile: online if a reading came in the last 30 seconds. */

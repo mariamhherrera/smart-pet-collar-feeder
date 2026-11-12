@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- UI-6 History graphs page: meals per day, movement and heart rate over time.
+<!-- UI-6 History graphs page: meals per day, and movement and heart rate for any day.
      Top bar and bottom bar are shared with the other main pages. -->
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
@@ -26,7 +26,7 @@
             android:paddingTop="20dp"
             android:paddingBottom="32dp">
 
-            <!-- UI-6.2: graphs from the history saved in Firebase (UI-6.1) -->
+            <!-- UI-6.2: graphs from the history saved in Firebase with a time (UI-6.1) -->
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -77,6 +77,71 @@
                         android:layout_marginTop="12dp" />
             </LinearLayout>
 
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Pick a day"
+                style="@style/Pt.Label"
+                android:layout_marginTop="24dp"
+                android:layout_marginBottom="8dp"
+                android:layout_marginStart="4dp" />
+
+            <!-- UI-6.1: load old readings by date -->
+            <LinearLayout
+                style="@style/Pt.Card"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:padding="10dp">
+
+                <ImageView
+                    android:id="@+id/buttonPrevDay"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:padding="10dp"
+                    android:background="@drawable/bg_tile"
+                    android:src="@drawable/ic_arrow_back"
+                    android:tint="@color/primary"
+                    android:contentDescription="Previous day" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center_horizontal">
+
+                    <TextView
+                        android:id="@+id/textDay"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Today"
+                        style="@style/Pt.Title"
+                        android:textSize="17sp" />
+
+                    <TextView
+                        android:id="@+id/textDayMeals"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text=""
+                        style="@style/Pt.Body"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+                <ImageView
+                    android:id="@+id/buttonNextDay"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:padding="10dp"
+                    android:background="@drawable/bg_tile"
+                    android:src="@drawable/ic_arrow_back"
+                    android:tint="@color/primary"
+                    android:rotation="180"
+                    android:contentDescription="Next day" />
+
+            </LinearLayout>
+
             <LinearLayout
                 style="@style/Pt.Card"
                 android:layout_width="match_parent"
@@ -94,12 +159,12 @@
                             android:background="@drawable/bg_icon_teal"
                             android:src="@drawable/ic_directions_run"
                             android:tint="@color/primary"
-                            android:contentDescription="Movement, last hour" />
+                            android:contentDescription="Movement" />
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Movement, last hour"
+                            android:text="Movement"
                             style="@style/Pt.Label"
                             android:layout_marginStart="10dp" />
                     </LinearLayout>
@@ -137,12 +202,12 @@
                             android:background="@drawable/bg_icon_red"
                             android:src="@drawable/ic_monitor_heart"
                             android:tint="@color/heart"
-                            android:contentDescription="Heart rate, last hour" />
+                            android:contentDescription="Heart rate" />
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Heart rate, last hour"
+                            android:text="Heart rate"
                             style="@style/Pt.Label"
                             android:layout_marginStart="10dp" />
                     </LinearLayout>

@@ -4,6 +4,9 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import com.example.pettracker.bluetooth.FeederMessage
+import com.example.pettracker.bluetooth.FeederReply
+import com.example.pettracker.charts.ChartData
 import org.junit.Test
 import java.util.Calendar
 
@@ -14,8 +17,8 @@ class UiLogicTest {
 
     @Test
     fun dogHeartRateLevels() {
-        assertEquals(HeartRateRange.Level.LOW, HeartRateRange.levelOf(60, "Dog"))
-        assertEquals(HeartRateRange.Level.NORMAL, HeartRateRange.levelOf(70, "Dog"))
+        assertEquals(HeartRateRange.Level.LOW, HeartRateRange.levelOf(59, "Dog"))
+        assertEquals(HeartRateRange.Level.NORMAL, HeartRateRange.levelOf(60, "Dog"))
         assertEquals(HeartRateRange.Level.NORMAL, HeartRateRange.levelOf(120, "Dog"))
         assertEquals(HeartRateRange.Level.HIGH, HeartRateRange.levelOf(121, "Dog"))
     }
@@ -24,13 +27,21 @@ class UiLogicTest {
     fun catHeartRateLevels() {
         assertEquals(HeartRateRange.Level.LOW, HeartRateRange.levelOf(119, "Cat"))
         assertEquals(HeartRateRange.Level.NORMAL, HeartRateRange.levelOf(130, "Cat"))
-        assertEquals(HeartRateRange.Level.HIGH, HeartRateRange.levelOf(150, "Cat"))
+        assertEquals(HeartRateRange.Level.NORMAL, HeartRateRange.levelOf(180, "Cat"))
+        assertEquals(HeartRateRange.Level.HIGH, HeartRateRange.levelOf(181, "Cat"))
     }
 
     @Test
     fun noSpeciesUsesDogRange() {
-        assertEquals(70..120, HeartRateRange.rangeFor(null))
-        assertEquals("Normal for a dog: 70 to 120 BPM", HeartRateRange.rangeText(null))
+        assertEquals(60..120, HeartRateRange.rangeFor(null))
+        assertEquals("Normal for a dog: 60 to 120 BPM", HeartRateRange.rangeText(null))
+    }
+
+    @Test
+    fun outsideTheRangeIsRed() {
+        val red = 0xFFDC2626.toInt()
+        assertEquals(red, HeartRateRange.levelOf(40, "Dog").color)
+        assertEquals(red, HeartRateRange.levelOf(200, "Cat").color)
     }
 
     // ---------- UI-8.3 meal limit ----------
@@ -115,5 +126,27 @@ class UiLogicTest {
         assertEquals(1234L, row["time"])
         assertEquals(80, row["heartRate"])
         assertFalse(row.containsKey("battery"))
+    }
+
+    // ---------- UI-8.3 meal limit sent to the feeder ----------
+
+    @Test
+    fun limitCommandAndReply() {
+        assertEquals("LIMIT,3", FeederMessage.limitCommand(3))
+        assertEquals(FeederReply.LimitSet(3), FeederMessage.parse("OK LIMIT 3"))
+        assertEquals(FeederReply.ScheduledSkipped, FeederMessage.parse("SCHEDULED ERR DAILY LIMIT"))
+    }
+
+    // ---------- UI-6.2 a whole day in one small graph ----------
+
+    @Test
+    fun averageDownKeepsTheShape() {
+        val day = FloatArray(17280) { if (it < 8640) 0f else 1f } // still in the morning, moving after
+        val points = ChartData.averageDown(day, 288)
+        assertEquals(288, points.size)
+        assertEquals(0f, points[0])
+        assertEquals(1f, points[287])
+        val few = floatArrayOf(1f, 2f)
+        assertEquals(few.toList(), ChartData.averageDown(few, 288).toList()) // small lists stay as they are
     }
 }

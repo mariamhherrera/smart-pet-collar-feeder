@@ -65,6 +65,7 @@ public class ScheduleActivity extends Activity {
             @Override
             public void onReply(FeederReply reply) {
                 if (reply instanceof FeederReply.TimeSet) return; // nothing to tell the owner
+                if (reply instanceof FeederReply.LimitSet) return;
                 if (reply instanceof FeederReply.Fed) feederMealsToday = ((FeederReply.Fed) reply).getFeedsToday();
                 if (reply instanceof FeederReply.ScheduledFed) feederMealsToday = ((FeederReply.ScheduledFed) reply).getFeedsToday();
                 Toast.makeText(ScheduleActivity.this, FeederMessage.screenText(reply),
@@ -102,6 +103,8 @@ public class ScheduleActivity extends Activity {
      */
     private void sendTimeAndSchedule() {
         feeder.send(FeederMessage.timeCommandNow());
+        // UI-8.3: the meal limit from Settings, so the feeder also skips scheduled meals past it
+        feeder.send(FeederMessage.limitCommand(new SettingsStorage(this).getMealLimit()));
         if (storage.hasSchedule()) {
             feeder.send(FeederMessage.scheduleCommand(
                     storage.getHour(), storage.getMinute(), storage.getPortion()));

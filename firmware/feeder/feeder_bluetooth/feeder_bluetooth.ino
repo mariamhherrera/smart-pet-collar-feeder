@@ -8,6 +8,7 @@
     FEED,<portion>       feed one portion: 1 = small, 2 = medium, 3 = large
     SCHEDULE,HH:MM,<p>   save the daily feeding time and portion
     TIME,HH:MM:SS        tell the feeder what time it is
+    LIMIT,<n>            most meals per day, 1 to 6 (UI-8.3, from the app's Settings)
     STATUS               show the saved schedule, the time and today's feeds
 
   At the scheduled time, the feeder feeds by itself and sends
@@ -15,7 +16,8 @@
 
   Overfeeding protection:
   - A second feed within 3 seconds is ignored (double taps).
-  - At most 6 feeds per day.
+  - At most <limit> feeds per day (set with LIMIT, never more than 6).
+    The scheduled meal counts too, and is skipped once the limit is reached.
 */
 
 #include <BluetoothSerial.h>
@@ -28,7 +30,8 @@ String usbMessage = "";
 
 // Overfeeding protection settings
 const unsigned long COOLDOWN_MS = 3000;            // 3 seconds between feeds
-const int MAX_FEEDS_PER_DAY = 6;
+const int MAX_FEEDS_PER_DAY = 6;                   // the limit can be lowered, never raised above this
+int dailyLimit = MAX_FEEDS_PER_DAY;                // UI-8.3: set by the app with LIMIT,<n>
 const unsigned long ONE_DAY_MS = 24UL * 60 * 60 * 1000;
 
 unsigned long lastFeedTime = 0;   // when the last feed happened (in ms)
@@ -100,7 +103,7 @@ String tryToFeed(int portion, bool useCooldown) {
   }
 
   // Rule 2: already fed the maximum today (the scheduled meal counts too)
-  if (feedsToday >= MAX_FEEDS_PER_DAY) {
+  if (feedsToday >= dailyLimit) {
     return "ERR DAILY LIMIT";
   }
 
@@ -136,6 +139,7 @@ void loadSchedule() {
   scheduleHour = storage.getInt("hour", 0);
   scheduleMinute = storage.getInt("minute", 0);
   schedulePortion = storage.getInt("portion", 2);
+  dailyLimit = storage.getInt("limit", MAX_FEEDS_PER_DAY);
 }
 
 // FEED or FEED,<portion>
@@ -178,6 +182,20 @@ void handleTime(String msg) {
   reply("OK TIME");
 }
 
+// LIMIT,<n>   for example LIMIT,3 (UI-8.3: meals per day from the app's Settings)
+void handleLimit(String msg) {
+  int limit;
+  if (sscanf(msg.c_str(), "LIMIT,%d", &limit) != 1 || limit < 1 || limit > MAX_FEEDS_PER_DAY) {
+    reply("ERR BAD LIMIT");
+    return;
+  }
+  if (limit != dailyLimit) {      // the app sends it on every connection: only write when it changed
+    dailyLimit = limit;
+    storage.putInt("limit", limit);
+  }
+  reply("OK LIMIT " + String(limit));
+}
+
 // STATUS: shows what the feeder knows, to check that the other commands worked
 void handleStatus() {
   String text = "STATUS";
@@ -193,7 +211,7 @@ void handleStatus() {
   } else {
     text += " time=unknown";
   }
-  text += " feedsToday=" + String(feedsToday);
+  text += " feedsToday=" + String(feedsToday) + " limit=" + String(dailyLimit);
   reply(text);
 }
 
@@ -230,6 +248,8 @@ void handleCommand(String msg) {
     handleSchedule(msg);
   } else if (msg.startsWith("TIME,")) {
     handleTime(msg);
+  } else if (msg.startsWith("LIMIT,")) {
+    handleLimit(msg);
   } else if (msg == "STATUS") {
     handleStatus();
   } else {

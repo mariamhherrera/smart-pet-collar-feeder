@@ -1,16 +1,19 @@
 package com.example.pettracker
 
 /**
- * UI-5.1: Normal resting heart rate for each species (beats per minute).
- * Source: Merck Veterinary Manual, "Resting Heart Rates" table
- * (dogs 70 to 120, cats 120 to 140). Change the numbers here if the team picks others.
+ * UI-5.1: Normal resting heart rate for each species (beats per minute), used as defaults.
+ * Two sources, combined so that neither one would call a healthy pet "abnormal":
+ *  - Merck Veterinary Manual, "Resting Heart Rates": dogs 70 to 120, cats 120 to 140
+ *  - Animal Medical Center (NYC), "Vital Signs": dogs 60 to 120 (large 60 to 90,
+ *    medium 70 to 110, small 90 to 120), cats 140 to 180
+ *  Defaults: dogs 60 to 120, cats 120 to 180. The ranges and sources are in the design document.
  *
- * UI-5.3: below the range is "Low" (blue), inside is "Normal" (green), above is "High" (red).
+ * UI-5.3: inside the range is green ("Normal"). Outside it is red ("Low" or "High").
  */
 object HeartRateRange {
 
     enum class Level(val label: String, val color: Int) {
-        LOW("Low", 0xFF0284C7.toInt()),
+        LOW("Low", 0xFFDC2626.toInt()),
         NORMAL("Normal", 0xFF15803D.toInt()),
         HIGH("High", 0xFFDC2626.toInt())
     }
@@ -18,8 +21,8 @@ object HeartRateRange {
     /** Normal range for the pet's species. A dog's range is used if no species is saved yet. */
     @JvmStatic
     fun rangeFor(species: String?): IntRange = when (species) {
-        "Cat" -> 120..140
-        else -> 70..120 // Dog
+        "Cat" -> 120..180
+        else -> 60..120 // Dog
     }
 
     @JvmStatic

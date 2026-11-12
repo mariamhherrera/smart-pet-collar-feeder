@@ -64,6 +64,38 @@ class PetCloudRepository(uid: String) {
         return listener
     }
 
+    /**
+     * UI-6.1: Loads the readings of one day (from [dayStart] to [dayEnd], in ms).
+     * Each reading is saved under its time in ms (13 digits), so the keys are in time order.
+     */
+    fun loadReadingsBetween(dayStart: Long, dayEnd: Long,
+                            onValue: (List<CollarReading>) -> Unit, onError: (String) -> Unit) {
+        userRoot.child("collar").child("readings").orderByKey()
+            .startAt(dayStart.toString()).endAt(dayEnd.toString())
+            .addListenerForSingleValueEvent(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    onValue(snapshot.children.mapNotNull { CollarReading.fromMap(it.value as? Map<*, *>) })
+                }
+                override fun onCancelled(error: DatabaseError) { onError(error.message) }
+            })
+    }
+
+    /** UI-6.1: Loads the meals of one day, using the "time" saved with each feeding. */
+    fun loadFeedingsBetween(dayStart: Long, dayEnd: Long,
+                            onValue: (List<Map<String, Any>>) -> Unit, onError: (String) -> Unit) {
+        userRoot.child("feeder").child("feedings").orderByChild("time")
+            .startAt(dayStart.toDouble()).endAt(dayEnd.toDouble())
+            .addListenerForSingleValueEvent(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    onValue(snapshot.children.mapNotNull {
+                        @Suppress("UNCHECKED_CAST")
+                        it.value as? Map<String, Any>
+                    })
+                }
+                override fun onCancelled(error: DatabaseError) { onError(error.message) }
+            })
+    }
+
     fun removeReadingsListener(count: Int, listener: ValueEventListener) {
         userRoot.child("collar").child("readings").limitToLast(count).removeEventListener(listener)
     }

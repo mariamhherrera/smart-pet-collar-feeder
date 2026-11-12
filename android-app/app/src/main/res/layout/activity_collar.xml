@@ -184,7 +184,7 @@
                     android:id="@+id/textHeartRateRange"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Normal for a dog: 70 to 120 BPM"
+                    android:text="Normal for a dog: 60 to 120 BPM"
                     style="@style/Pt.Body"
                     android:textSize="12sp"
                     android:layout_marginTop="4dp" />

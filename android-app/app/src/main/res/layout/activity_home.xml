@@ -1,208 +1,365 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView
+<!-- Home screen, redesigned from our Stitch draft (only what the app really measures).
+     Top bar and bottom bar are shared with the other main screens. -->
+<LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:fillViewport="true"
+    android:orientation="vertical"
     android:fitsSystemWindows="true"
     android:background="@color/background">
 
-    <LinearLayout
+    <include layout="@layout/top_bar" />
+
+    <ScrollView
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical">
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true">
 
-        <!-- Teal header, same as the feeding schedule screen -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:background="@color/primary"
-            android:paddingStart="24dp"
-            android:paddingEnd="24dp"
-            android:paddingTop="28dp"
-            android:paddingBottom="24dp">
+            android:orientation="vertical">
 
-            <TextView
+            <!-- ===== Everything under the top bar ===== -->
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="PetTracker"
-                android:textSize="30sp"
-                android:textStyle="bold"
-                android:textColor="#FFFFFF"/>
+                android:orientation="vertical"
+                android:paddingStart="20dp"
+                android:paddingEnd="20dp"
+                android:paddingTop="20dp"
+                android:paddingBottom="32dp">
 
-            <TextView
-                android:id="@+id/textWelcome"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Welcome!"
-                android:textSize="15sp"
-                android:textColor="@color/primary_light"
-                android:layout_marginTop="4dp"/>
+                <!-- Greeting -->
+                <TextView
+                    android:id="@+id/textWelcome"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Welcome!"
+                    style="@style/Pt.Body"
+                    android:textSize="14sp" />
+
+                <TextView
+                    android:id="@+id/textPetName"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Add your pet"
+                    style="@style/Pt.Metric"
+                    android:textSize="28sp"
+                    android:layout_marginTop="2dp" />
+
+                <!-- ===== Devices: collar and feeder ===== -->
+                <LinearLayout
+                    style="@style/Pt.Card"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="20dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Devices"
+                        style="@style/Pt.Label" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:baselineAligned="false"
+                        android:layout_marginTop="12dp">
+
+                        <!-- Collar tile -->
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="match_parent"
+                            android:layout_weight="1"
+                            android:orientation="vertical"
+                            android:background="@drawable/bg_tile"
+                            android:padding="14dp"
+                            android:layout_marginEnd="6dp">
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="horizontal"
+                                android:gravity="center_vertical">
+
+                                <ImageView
+                                    style="@style/Pt.Icon"
+                                    android:layout_width="36dp"
+                                    android:layout_height="36dp"
+                                    android:padding="8dp"
+                                    android:background="@drawable/bg_icon_teal"
+                                    android:src="@drawable/ic_pets"
+                                    android:tint="@color/primary"
+                                    android:contentDescription="Collar" />
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Collar"
+                                    style="@style/Pt.Title"
+                                    android:layout_marginStart="10dp" />
+                            </LinearLayout>
+
+                            <TextView
+                                android:id="@+id/textConnection"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="Disconnected"
+                                android:textSize="13sp"
+                                android:textColor="#DC2626"
+                                android:fontFamily="@font/plus_jakarta_sans_semibold"
+                                android:maxLines="2"
+                                android:ellipsize="end"
+                                android:layout_marginTop="10dp" />
+                        </LinearLayout>
+
+                        <!-- Feeder tile -->
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="match_parent"
+                            android:layout_weight="1"
+                            android:orientation="vertical"
+                            android:background="@drawable/bg_tile"
+                            android:padding="14dp"
+                            android:layout_marginStart="6dp">
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="horizontal"
+                                android:gravity="center_vertical">
+
+                                <ImageView
+                                    style="@style/Pt.Icon"
+                                    android:layout_width="36dp"
+                                    android:layout_height="36dp"
+                                    android:padding="8dp"
+                                    android:background="@drawable/bg_icon_orange"
+                                    android:src="@drawable/ic_restaurant"
+                                    android:tint="@color/accent"
+                                    android:contentDescription="Feeder" />
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Feeder"
+                                    style="@style/Pt.Title"
+                                    android:layout_marginStart="10dp" />
+                            </LinearLayout>
+
+                            <TextView
+                                android:id="@+id/textFeeder"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="Disconnected"
+                                android:textSize="13sp"
+                                android:textColor="#DC2626"
+                                android:fontFamily="@font/plus_jakarta_sans_semibold"
+                                android:maxLines="2"
+                                android:ellipsize="end"
+                                android:layout_marginTop="10dp" />
+                        </LinearLayout>
+                    </LinearLayout>
+
+                </LinearLayout>
+
+                <!-- ===== Heart rate and next meal, side by side ===== -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:baselineAligned="false"
+                    android:layout_marginTop="16dp">
+
+                    <!-- Heart rate (COL-5.3 fills in the number) -->
+                    <LinearLayout
+                        style="@style/Pt.Card"
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_weight="1"
+                        android:layout_marginEnd="6dp">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical">
+
+                            <ImageView
+                                style="@style/Pt.Icon"
+                                android:background="@drawable/bg_icon_red"
+                                android:src="@drawable/ic_monitor_heart"
+                                android:tint="@color/heart"
+                                android:contentDescription="Heart rate" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Heart rate"
+                                style="@style/Pt.Label"
+                                android:layout_marginStart="10dp" />
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:layout_marginTop="16dp">
+
+                            <TextView
+                                android:id="@+id/textHeartRate"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="--"
+                                style="@style/Pt.Metric"
+                                android:textSize="34sp" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="BPM"
+                                style="@style/Pt.Label"
+                                android:textSize="12sp"
+                                android:layout_marginStart="4dp" />
+                        </LinearLayout>
+
+                        <!-- Pushes the note to the bottom of the card -->
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="0dp"
+                            android:layout_weight="1" />
+
+                        <TextView
+                            android:id="@+id/textHeartRateNote"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Waiting for the collar"
+                            style="@style/Pt.Body"
+                            android:textSize="12sp"
+                            android:layout_marginTop="12dp" />
+                    </LinearLayout>
+
+                    <!-- Next meal and Feed now -->
+                    <LinearLayout
+                        style="@style/Pt.Card"
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_weight="1"
+                        android:layout_marginStart="6dp">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical">
+
+                            <ImageView
+                                style="@style/Pt.Icon"
+                                android:background="@drawable/bg_icon_orange"
+                                android:src="@drawable/ic_restaurant"
+                                android:tint="@color/accent"
+                                android:contentDescription="Next meal" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Next meal"
+                                style="@style/Pt.Label"
+                                android:layout_marginStart="10dp" />
+                        </LinearLayout>
+
+                        <TextView
+                            android:id="@+id/textNextMeal"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Not set"
+                            style="@style/Pt.Metric"
+                            android:textSize="26sp"
+                            android:layout_marginTop="16dp" />
+
+                        <TextView
+                            android:id="@+id/textNextPortion"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Set a schedule below"
+                            style="@style/Pt.Body" />
+
+                        <Button
+                            android:id="@+id/buttonFeedNow"
+                            android:layout_width="match_parent"
+                            android:layout_height="44dp"
+                            android:minHeight="44dp"
+                            android:text="Feed now"
+                            android:textSize="15sp"
+                            android:textColor="#FFFFFF"
+                            android:background="@drawable/bg_accent_button"
+                            android:stateListAnimator="@null"
+                            android:enabled="false"
+                            android:alpha="0.5"
+                            android:layout_marginTop="14dp" />
+
+                        <Button
+                            android:id="@+id/buttonSchedule"
+                            style="@style/Pt.RowButton"
+                            android:layout_height="40dp"
+                            android:gravity="center"
+                            android:text="Edit schedule"
+                            android:textSize="13sp"
+                            android:textColor="@color/primary"
+                            android:layout_marginTop="4dp" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- ===== Activity (COL-2.2 fills in resting / walking / running) ===== -->
+                <LinearLayout
+                    style="@style/Pt.Card"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginTop="16dp">
+
+                    <ImageView
+                        style="@style/Pt.Icon"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:padding="11dp"
+                        android:background="@drawable/bg_icon_teal"
+                        android:src="@drawable/ic_directions_run"
+                        android:tint="@color/primary"
+                        android:contentDescription="Activity" />
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical"
+                        android:layout_marginStart="14dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Activity"
+                            style="@style/Pt.Label" />
+
+                        <TextView
+                            android:id="@+id/textActivity"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="No data yet"
+                            style="@style/Pt.Title"
+                            android:textSize="17sp"
+                            android:layout_marginTop="2dp" />
+                    </LinearLayout>
+                </LinearLayout>
+
+            </LinearLayout>
         </LinearLayout>
+    </ScrollView>
 
-        <!-- Everything under the header -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:padding="20dp">
-
-            <!-- My Pet -->
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="My pet"
-                android:textSize="18sp"
-                android:textStyle="bold"
-                android:textColor="@color/text_primary"
-                android:layout_marginBottom="8dp"/>
-
-            <TextView
-                android:id="@+id/textPetName"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:minHeight="64dp"
-                android:text="No pet profile yet"
-                android:textSize="18sp"
-                android:textColor="@color/text_primary"
-                android:background="@drawable/bg_card"
-                android:gravity="center_vertical"
-                android:padding="16dp"
-                android:layout_marginBottom="20dp"/>
-
-            <!-- Collar connection -->
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Collar connection"
-                android:textSize="18sp"
-                android:textStyle="bold"
-                android:textColor="@color/text_primary"
-                android:layout_marginBottom="8dp"/>
-
-            <TextView
-                android:id="@+id/textConnection"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:minHeight="64dp"
-                android:text="Disconnected"
-                android:textSize="16sp"
-                android:textColor="#DC2626"
-                android:background="@drawable/bg_card"
-                android:gravity="center_vertical"
-                android:padding="16dp"
-                android:layout_marginBottom="20dp"/>
-
-            <!-- Latest activity -->
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Latest activity"
-                android:textSize="18sp"
-                android:textStyle="bold"
-                android:textColor="@color/text_primary"
-                android:layout_marginBottom="8dp"/>
-
-            <TextView
-                android:id="@+id/textActivity"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:minHeight="64dp"
-                android:text="No data yet"
-                android:textSize="16sp"
-                android:textColor="@color/text_secondary"
-                android:background="@drawable/bg_card"
-                android:gravity="center_vertical"
-                android:padding="16dp"
-                android:layout_marginBottom="20dp"/>
-
-            <!-- Feeder (FD-2.1) -->
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Feeder"
-                android:textSize="18sp"
-                android:textStyle="bold"
-                android:textColor="@color/text_primary"
-                android:layout_marginBottom="8dp"/>
-
-            <TextView
-                android:id="@+id/textFeeder"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:minHeight="64dp"
-                android:text="Feeder disconnected"
-                android:textSize="16sp"
-                android:textColor="#DC2626"
-                android:background="@drawable/bg_card"
-                android:gravity="center_vertical"
-                android:padding="16dp"
-                android:layout_marginBottom="12dp"/>
-
-            <Button
-                android:id="@+id/buttonFeedNow"
-                android:layout_width="match_parent"
-                android:layout_height="56dp"
-                android:text="Feed now"
-                android:textAllCaps="false"
-                android:textSize="16sp"
-                android:textStyle="bold"
-                android:textColor="#FFFFFF"
-                android:background="@drawable/bg_primary_button"
-                android:enabled="false"
-                android:alpha="0.5"
-                android:layout_marginBottom="28dp"/>
-
-            <!-- Main buttons: all teal -->
-            <Button
-                android:id="@+id/buttonSearchCollar"
-                android:layout_width="match_parent"
-                android:layout_height="56dp"
-                android:text="Search for collar"
-                android:textAllCaps="false"
-                android:textSize="16sp"
-                android:textStyle="bold"
-                android:textColor="#FFFFFF"
-                android:background="@drawable/bg_primary_button"
-                android:layout_marginBottom="12dp"/>
-
-            <Button
-                android:id="@+id/buttonProfile"
-                android:layout_width="match_parent"
-                android:layout_height="56dp"
-                android:text="Pet profile"
-                android:textAllCaps="false"
-                android:textSize="16sp"
-                android:textStyle="bold"
-                android:textColor="#FFFFFF"
-                android:background="@drawable/bg_primary_button"
-                android:layout_marginBottom="12dp"/>
-
-            <Button
-                android:id="@+id/buttonSchedule"
-                android:layout_width="match_parent"
-                android:layout_height="56dp"
-                android:text="Feeding schedule"
-                android:textAllCaps="false"
-                android:textSize="16sp"
-                android:textStyle="bold"
-                android:textColor="#FFFFFF"
-                android:background="@drawable/bg_primary_button"
-                android:layout_marginBottom="24dp"/>
-
-            <!-- Logout: outlined, so it's clearly different -->
-            <Button
-                android:id="@+id/buttonLogout"
-                android:layout_width="match_parent"
-                android:layout_height="56dp"
-                android:text="Log out"
-                android:textAllCaps="false"
-                android:textSize="16sp"
-                android:textStyle="bold"
-                android:textColor="@color/primary"
-                android:background="@drawable/bg_secondary_button"/>
-
-        </LinearLayout>
-    </LinearLayout>
-</ScrollView>
+    <include layout="@layout/bottom_nav" />
+</LinearLayout>

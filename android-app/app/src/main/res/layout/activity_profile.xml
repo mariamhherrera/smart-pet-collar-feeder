@@ -1,185 +1,195 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView
+<!-- Profile screen (bottom bar): pet details and log out.
+     Same view ids as before for the form. -->
+<LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:fillViewport="true"
+    android:orientation="vertical"
     android:fitsSystemWindows="true"
     android:background="@color/background">
 
-    <LinearLayout
+    <include layout="@layout/top_bar" />
+
+    <ScrollView
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical">
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true">
 
-        <!-- Teal header, same as the other screens -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:background="@color/primary"
-            android:paddingStart="24dp"
-            android:paddingEnd="24dp"
-            android:paddingTop="28dp"
-            android:paddingBottom="24dp">
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp"
+            android:paddingTop="20dp"
+            android:paddingBottom="32dp">
 
-            <ImageButton
-                android:id="@+id/backButton"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:src="@drawable/ic_arrow_back"
-                android:background="?android:attr/selectableItemBackgroundBorderless"
-                android:contentDescription="Back"
-                android:layout_marginBottom="8dp"/>
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Pet profile"
-                android:textSize="26sp"
-                android:textStyle="bold"
-                android:textColor="#FFFFFF"/>
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Tell us about your pet"
-                android:textSize="15sp"
-                android:textColor="@color/primary_light"
-                android:layout_marginTop="4dp"/>
-        </LinearLayout>
-
-        <!-- Form -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:padding="20dp">
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="About your pet"
-                android:textSize="18sp"
-                android:textStyle="bold"
-                android:textColor="@color/text_primary"
-                android:layout_marginBottom="10dp"/>
-
-            <EditText
-                android:id="@+id/editPetName"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:minHeight="56dp"
-                android:hint="Pet name"
-                android:inputType="textCapWords"
-                android:singleLine="true"
-                android:background="@drawable/bg_input"
-                android:paddingStart="16dp"
-                android:paddingEnd="16dp"
-                android:textColor="@color/text_primary"
-                android:layout_marginBottom="12dp"/>
-
-            <!-- Spinner inside a rounded box so it keeps its dropdown arrow -->
-            <FrameLayout
-                android:layout_width="match_parent"
-                android:layout_height="56dp"
-                android:background="@drawable/bg_input"
-                android:paddingStart="8dp"
-                android:paddingEnd="8dp"
-                android:layout_marginBottom="12dp">
-
-                <Spinner
-                    android:id="@+id/spinnerSpecies"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:entries="@array/pet_species"/>
-            </FrameLayout>
-
-            <EditText
-                android:id="@+id/editBreed"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:minHeight="56dp"
-                android:hint="Breed"
-                android:inputType="textCapWords"
-                android:singleLine="true"
-                android:background="@drawable/bg_input"
-                android:paddingStart="16dp"
-                android:paddingEnd="16dp"
-                android:textColor="@color/text_primary"
-                android:layout_marginBottom="12dp"/>
-
-            <!-- Weight and age side by side -->
+            <!-- ===== Pet details ===== -->
             <LinearLayout
+                style="@style/Pt.Card"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:layout_marginBottom="24dp">
+                android:layout_height="wrap_content">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="About your pet"
+                    style="@style/Pt.Label"
+                    android:layout_marginBottom="10dp"/>
 
                 <EditText
-                    android:id="@+id/editWeight"
-                    android:layout_width="0dp"
+                    android:id="@+id/editPetName"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
                     android:minHeight="56dp"
-                    android:hint="Weight (kg)"
-                    android:inputType="numberDecimal"
+                    android:hint="Pet name"
+                    android:inputType="textCapWords"
                     android:singleLine="true"
                     android:background="@drawable/bg_input"
                     android:paddingStart="16dp"
                     android:paddingEnd="16dp"
                     android:textColor="@color/text_primary"
-                    android:layout_marginEnd="6dp"/>
+                    android:layout_marginBottom="12dp"/>
+
+                <!-- Spinner inside a rounded box so it keeps its dropdown arrow -->
+                <FrameLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="56dp"
+                    android:background="@drawable/bg_input"
+                    android:paddingStart="8dp"
+                    android:paddingEnd="8dp"
+                    android:layout_marginBottom="12dp">
+
+                    <Spinner
+                        android:id="@+id/spinnerSpecies"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:entries="@array/pet_species"/>
+                </FrameLayout>
 
                 <EditText
-                    android:id="@+id/editAge"
-                    android:layout_width="0dp"
+                    android:id="@+id/editBreed"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
                     android:minHeight="56dp"
-                    android:hint="Age (years)"
-                    android:inputType="numberDecimal"
+                    android:hint="Breed"
+                    android:inputType="textCapWords"
                     android:singleLine="true"
                     android:background="@drawable/bg_input"
                     android:paddingStart="16dp"
                     android:paddingEnd="16dp"
                     android:textColor="@color/text_primary"
-                    android:layout_marginStart="6dp"/>
+                    android:layout_marginBottom="12dp"/>
+
+                <!-- Weight and age side by side -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginBottom="24dp">
+
+                    <EditText
+                        android:id="@+id/editWeight"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:minHeight="56dp"
+                        android:hint="Weight (kg)"
+                        android:inputType="numberDecimal"
+                        android:singleLine="true"
+                        android:background="@drawable/bg_input"
+                        android:paddingStart="16dp"
+                        android:paddingEnd="16dp"
+                        android:textColor="@color/text_primary"
+                        android:layout_marginEnd="6dp"/>
+
+                    <EditText
+                        android:id="@+id/editAge"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:minHeight="56dp"
+                        android:hint="Age (years)"
+                        android:inputType="numberDecimal"
+                        android:singleLine="true"
+                        android:background="@drawable/bg_input"
+                        android:paddingStart="16dp"
+                        android:paddingEnd="16dp"
+                        android:textColor="@color/text_primary"
+                        android:layout_marginStart="6dp"/>
+                </LinearLayout>
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Health"
+                    style="@style/Pt.Label"
+                    android:layout_marginBottom="10dp"/>
+
+                <EditText
+                    android:id="@+id/editHealth"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:minHeight="100dp"
+                    android:hint="Health conditions (write None if none)"
+                    android:inputType="textMultiLine"
+                    android:gravity="top"
+                    android:background="@drawable/bg_input"
+                    android:padding="16dp"
+                    android:textColor="@color/text_primary"
+                    android:layout_marginBottom="4dp"/>
             </LinearLayout>
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Health"
-                android:textSize="18sp"
-                android:textStyle="bold"
-                android:textColor="@color/text_primary"
-                android:layout_marginBottom="10dp"/>
-
-            <EditText
-                android:id="@+id/editHealth"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:minHeight="100dp"
-                android:hint="Health conditions (write None if none)"
-                android:inputType="textMultiLine"
-                android:gravity="top"
-                android:background="@drawable/bg_input"
-                android:padding="16dp"
-                android:textColor="@color/text_primary"
-                android:layout_marginBottom="28dp"/>
 
             <Button
                 android:id="@+id/buttonSaveProfile"
                 android:layout_width="match_parent"
-                android:layout_height="56dp"
+                android:layout_height="52dp"
                 android:text="Save profile"
-                android:textAllCaps="false"
                 android:textSize="16sp"
-                android:textStyle="bold"
-                android:textColor="#FFFFFF"
-                android:background="@drawable/bg_primary_button" />
+                android:stateListAnimator="@null"
+                android:layout_marginTop="20dp" />
+
+            <!-- ===== Account ===== -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Account"
+                style="@style/Pt.Label"
+                android:layout_marginTop="24dp"
+                android:layout_marginBottom="8dp"
+                android:layout_marginStart="4dp" />
+
+            <LinearLayout
+                style="@style/Pt.Card"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:padding="6dp">
+
+                <TextView
+                    android:id="@+id/textAccountEmail"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text=""
+                    style="@style/Pt.Body"
+                    android:textSize="14sp"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="12dp"
+                    android:paddingTop="12dp"
+                    android:paddingBottom="8dp" />
+
+                <Button
+                    android:id="@+id/buttonLogout"
+                    style="@style/Pt.RowButton"
+                    android:text="Log out"
+                    android:textColor="@color/heart"
+                    android:drawableStart="@drawable/ic_logout"
+                    android:drawableTint="@color/heart" />
+            </LinearLayout>
 
         </LinearLayout>
-    </LinearLayout>
-</ScrollView>
+    </ScrollView>
+
+    <include layout="@layout/bottom_nav" />
+</LinearLayout>

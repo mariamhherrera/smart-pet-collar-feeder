@@ -33,7 +33,17 @@ class ProfileActivity : Activity() {
         }
 
         setContentView(R.layout.activity_profile)
-        findViewById<android.view.View>(R.id.backButton).setOnClickListener { finish() }
+        // Bottom bar: this is the Profile tab
+        BottomNav.setUp(this, BottomNav.PROFILE)
+
+        // Account: who is logged in, and log out (moved here from Home)
+        findViewById<android.widget.TextView>(R.id.textAccountEmail).text =
+            "Logged in as ${auth.currentUser?.email ?: "unknown"}"
+        findViewById<Button>(R.id.buttonLogout).setOnClickListener {
+            auth.signOut()
+            Toast.makeText(this, "Logged out successfully", Toast.LENGTH_SHORT).show()
+            returnToLogin()
+        }
 
         editName = findViewById(R.id.editPetName)
         spinnerSpecies = findViewById(R.id.spinnerSpecies)

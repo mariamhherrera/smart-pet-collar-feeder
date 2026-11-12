@@ -1,234 +1,276 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- Feeder screen (bottom bar): connection, food level, schedule and Feed now.
+     Same view ids as before for the schedule and Feed now parts. -->
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#F1F5F9"
-    android:fillViewport="true"
-    android:fitsSystemWindows="true">
+    android:orientation="vertical"
+    android:fitsSystemWindows="true"
+    android:background="@color/background">
 
-    <LinearLayout
+    <include layout="@layout/top_bar" />
+
+    <ScrollView
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical">
-
-        <!-- Header -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="#0D9488"
-            android:orientation="vertical"
-            android:paddingStart="24dp"
-            android:paddingTop="28dp"
-            android:paddingEnd="24dp"
-            android:paddingBottom="28dp">
-
-            <ImageButton
-            android:id="@+id/backButton"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:src="@drawable/ic_arrow_back"
-            android:background="?android:attr/selectableItemBackgroundBorderless"
-            android:contentDescription="Back"
-            android:layout_marginBottom="8dp"/>
-
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Feeding schedule"
-                android:textColor="#FFFFFF"
-                android:textSize="26sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:text="Choose when and how much your pet eats"
-                android:textColor="#CCFBF1"
-                android:textSize="14sp" />
-        </LinearLayout>
-
-        <!-- Time card -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="16dp"
-            android:layout_marginTop="20dp"
-            android:layout_marginEnd="16dp"
-            android:background="@drawable/bg_card"
-            android:orientation="vertical"
-            android:padding="16dp">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Feeding time"
-                android:textColor="#0F172A"
-                android:textSize="16sp"
-                android:textStyle="bold" />
-
-            <TimePicker
-                android:id="@+id/timePicker"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center_horizontal"
-                android:timePickerMode="spinner" />
-        </LinearLayout>
-
-        <!-- Portion card -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="16dp"
-            android:layout_marginTop="16dp"
-            android:layout_marginEnd="16dp"
-            android:background="@drawable/bg_card"
-            android:orientation="vertical"
-            android:padding="16dp">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Portion size"
-                android:textColor="#0F172A"
-                android:textSize="16sp"
-                android:textStyle="bold" />
-
-            <RadioGroup
-                android:id="@+id/portionGroup"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:orientation="horizontal">
-
-                <RadioButton
-                    android:id="@+id/portionSmall"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:buttonTint="#0D9488"
-                    android:text="Small"
-                    android:textSize="15sp" />
-
-                <RadioButton
-                    android:id="@+id/portionMedium"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:buttonTint="#0D9488"
-                    android:checked="true"
-                    android:text="Medium"
-                    android:textSize="15sp" />
-
-                <RadioButton
-                    android:id="@+id/portionLarge"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:buttonTint="#0D9488"
-                    android:text="Large"
-                    android:textSize="15sp" />
-            </RadioGroup>
-        </LinearLayout>
-
-        <!-- Save button -->
-        <Button
-            android:id="@+id/saveButton"
-            android:layout_width="match_parent"
-            android:layout_height="60dp"
-            android:layout_marginStart="16dp"
-            android:layout_marginTop="24dp"
-            android:layout_marginEnd="16dp"
-            android:background="@drawable/bg_primary_button"
-            android:text="Save schedule"
-            android:textAllCaps="false"
-            android:textColor="#FFFFFF"
-            android:textSize="18sp"
-            android:textStyle="bold" />
-
-        <!-- Saved schedule -->
-        <TextView
-            android:id="@+id/currentScheduleText"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_margin="16dp"
-            android:background="@drawable/bg_card"
-            android:gravity="center"
-            android:padding="16dp"
-            android:text="No schedule saved yet"
-            android:textColor="#475569"
-            android:textSize="15sp" />
-        <!-- FD-2.1: Feed now -->
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Feed now"
-            android:textSize="18sp"
-            android:textStyle="bold"
-            android:textColor="@color/text_primary"
-            android:layout_marginTop="24dp"
-            android:layout_marginBottom="8dp"/>
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="16dp"
-            android:background="@drawable/bg_card">
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp"
+            android:paddingTop="20dp"
+            android:paddingBottom="32dp">
 
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Give one portion right away, for example if a meal was missed."
-                android:textSize="14sp"
-                android:textColor="@color/text_secondary"
-                android:layout_marginBottom="12dp"/>
-
-            <RadioGroup
-                android:id="@+id/feedNowPortionGroup"
+            <!-- ===== Feeder connection ===== -->
+            <LinearLayout
+                style="@style/Pt.Card"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:layout_marginBottom="16dp">
+                android:gravity="center_vertical">
 
-                <RadioButton
-                    android:id="@+id/feedNowSmall"
+                <ImageView
+                    style="@style/Pt.Icon"
+                    android:layout_width="56dp"
+                    android:layout_height="56dp"
+                    android:padding="14dp"
+                    android:background="@drawable/bg_icon_orange"
+                    android:src="@drawable/ic_restaurant"
+                    android:tint="@color/accent"
+                    android:contentDescription="Feeder" />
+
+                <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="Small"
-                    android:buttonTint="@color/primary"/>
+                    android:orientation="vertical"
+                    android:layout_marginStart="14dp">
 
-                <RadioButton
-                    android:id="@+id/feedNowMedium"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Medium"
-                    android:checked="true"
-                    android:buttonTint="@color/primary"/>
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Smart feeder"
+                        style="@style/Pt.Title"
+                        android:textSize="20sp" />
 
-                <RadioButton
-                    android:id="@+id/feedNowLarge"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Large"
-                    android:buttonTint="@color/primary"/>
-            </RadioGroup>
+                    <TextView
+                        android:id="@+id/textFeederStatus"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Searching for the feeder…"
+                        android:textSize="13sp"
+                        android:textColor="@color/text_secondary"
+                        android:fontFamily="@font/plus_jakarta_sans_semibold"
+                        android:layout_marginTop="2dp" />
+                </LinearLayout>
+            </LinearLayout>
 
-            <Button
-                android:id="@+id/feedNowButton"
+            <!-- ===== Food level (FD-4 fills in the number) ===== -->
+            <LinearLayout
+                style="@style/Pt.Card"
                 android:layout_width="match_parent"
-                android:layout_height="56dp"
-                android:text="Feed now"
-                android:textAllCaps="false"
-                android:textSize="16sp"
-                android:textStyle="bold"
-                android:textColor="@color/primary"
-                android:background="@drawable/bg_secondary_button"/>
-        </LinearLayout>
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp">
 
-    </LinearLayout>
-</ScrollView>
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <ImageView
+                        style="@style/Pt.Icon"
+                        android:background="@drawable/bg_icon_orange"
+                        android:src="@drawable/ic_inventory_2"
+                        android:tint="@color/accent"
+                        android:contentDescription="Food level" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Food left"
+                        style="@style/Pt.Label"
+                        android:layout_marginStart="10dp" />
+
+                    <TextView
+                        android:id="@+id/textFoodLevel"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="--%"
+                        style="@style/Pt.Metric"
+                        android:textSize="26sp" />
+                </LinearLayout>
+
+                <ProgressBar
+                    android:id="@+id/progressFoodLevel"
+                    style="@android:style/Widget.ProgressBar.Horizontal"
+                    android:layout_width="match_parent"
+                    android:layout_height="10dp"
+                    android:max="100"
+                    android:progress="0"
+                    android:progressDrawable="@drawable/bg_level_bar"
+                    android:layout_marginTop="14dp" />
+
+                <TextView
+                    android:id="@+id/textFoodLevelNote"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Waiting for the feeder"
+                    style="@style/Pt.Body"
+                    android:textSize="12sp"
+                    android:layout_marginTop="8dp" />
+            </LinearLayout>
+
+            <!-- ===== Daily schedule ===== -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Daily schedule"
+                style="@style/Pt.Label"
+                android:layout_marginTop="24dp"
+                android:layout_marginBottom="8dp"
+                android:layout_marginStart="4dp" />
+
+            <LinearLayout
+                style="@style/Pt.Card"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Feeding time"
+                    style="@style/Pt.Title" />
+
+                <TimePicker
+                    android:id="@+id/timePicker"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_horizontal"
+                    android:timePickerMode="spinner" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Portion size"
+                    style="@style/Pt.Title"
+                    android:layout_marginTop="8dp" />
+
+                <RadioGroup
+                    android:id="@+id/portionGroup"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginTop="10dp"
+                    android:layout_marginStart="-4dp"
+                    android:layout_marginEnd="-4dp">
+
+                    <RadioButton
+                        android:id="@+id/portionSmall"
+                        style="@style/Pt.Chip"
+                        android:text="Small" />
+
+                    <RadioButton
+                        android:id="@+id/portionMedium"
+                        style="@style/Pt.Chip"
+                        android:checked="true"
+                        android:text="Medium" />
+
+                    <RadioButton
+                        android:id="@+id/portionLarge"
+                        style="@style/Pt.Chip"
+                        android:text="Large" />
+                </RadioGroup>
+
+                <Button
+                    android:id="@+id/saveButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:text="Save schedule"
+                    android:textSize="16sp"
+                    android:stateListAnimator="@null"
+                    android:layout_marginTop="20dp" />
+
+                <TextView
+                    android:id="@+id/currentScheduleText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:text="No schedule saved yet"
+                    style="@style/Pt.Body"
+                    android:background="@drawable/bg_tile"
+                    android:padding="12dp"
+                    android:layout_marginTop="12dp" />
+            </LinearLayout>
+
+            <!-- ===== Feed now (FD-2.1) ===== -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Feed now"
+                style="@style/Pt.Label"
+                android:layout_marginTop="24dp"
+                android:layout_marginBottom="8dp"
+                android:layout_marginStart="4dp" />
+
+            <LinearLayout
+                style="@style/Pt.Card"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Give one portion right away, for example if a meal was missed."
+                    style="@style/Pt.Body"
+                    android:textSize="14sp" />
+
+                <RadioGroup
+                    android:id="@+id/feedNowPortionGroup"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginTop="14dp"
+                    android:layout_marginStart="-4dp"
+                    android:layout_marginEnd="-4dp">
+
+                    <RadioButton
+                        android:id="@+id/feedNowSmall"
+                        style="@style/Pt.Chip"
+                        android:text="Small" />
+
+                    <RadioButton
+                        android:id="@+id/feedNowMedium"
+                        style="@style/Pt.Chip"
+                        android:checked="true"
+                        android:text="Medium" />
+
+                    <RadioButton
+                        android:id="@+id/feedNowLarge"
+                        style="@style/Pt.Chip"
+                        android:text="Large" />
+                </RadioGroup>
+
+                <Button
+                    android:id="@+id/feedNowButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:text="Feed now"
+                    android:textSize="16sp"
+                    android:textColor="#FFFFFF"
+                    android:background="@drawable/bg_accent_button"
+                    android:stateListAnimator="@null"
+                    android:layout_marginTop="16dp" />
+            </LinearLayout>
+
+        </LinearLayout>
+    </ScrollView>
+
+    <include layout="@layout/bottom_nav" />
+</LinearLayout>

@@ -7,9 +7,9 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.text.format.DateFormat
 import android.widget.Button
 import android.widget.TextView
-import android.widget.Toast
 import androidx.core.content.ContextCompat
 import com.google.firebase.auth.FirebaseAuth
 import androidx.core.app.ActivityCompat
@@ -21,6 +21,7 @@ import com.example.pettracker.bluetooth.LinkConfig
 import com.example.pettracker.bluetooth.LinkListener
 import com.example.pettracker.bluetooth.LinkState
 import com.example.pettracker.feeder.ScheduleStorage
+import java.util.Calendar
 import java.util.concurrent.Executors
 
 class HomeActivity : Activity(), BluetoothSppClient.Listener {
@@ -30,7 +31,6 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
     private var collarClient: BluetoothSppClient? = null
     private lateinit var textConnection: TextView
     private lateinit var textActivity: TextView
-    private lateinit var searchButton: Button
     private var permissionRequest = 410
 
     // Feeder (FD-2.1): one Bluetooth link to PetFeeder_ESP32
@@ -56,46 +56,18 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
 
         textConnection = findViewById(R.id.textConnection)
         textActivity = findViewById(R.id.textActivity)
-        searchButton = findViewById(R.id.buttonSearchCollar)
         textFeeder = findViewById(R.id.textFeeder)
         buttonFeedNow = findViewById(R.id.buttonFeedNow)
         buttonFeedNow.setOnClickListener { feedNow() }
 
-        val buttonProfile =
-            findViewById<Button>(R.id.buttonProfile)
+        // Bottom bar: Home, Feeder, Collar, Profile (log out is on the Profile screen now)
+        BottomNav.setUp(this, BottomNav.HOME)
 
-        val buttonLogout =
-            findViewById<Button>(R.id.buttonLogout)
-
-        buttonProfile.setOnClickListener {
-
-            startActivity(
-                Intent(this, ProfileActivity::class.java)
-            )
-        }
+        // Shortcut from the Next meal card to the feeding schedule
         findViewById<Button>(R.id.buttonSchedule).setOnClickListener {
             startActivity(Intent(this, com.example.pettracker.feeder.ScheduleActivity::class.java))
         }
 
-        buttonLogout.setOnClickListener {
-
-            // Logout from Firebase
-            auth.signOut()
-            collarClient?.stop()
-            stopFeeder()
-            Toast.makeText(
-                this,
-                "Logged out successfully",
-                Toast.LENGTH_SHORT
-            ).show()
-
-            returnToLogin()
-        }
-
-        searchButton.setOnClickListener {
-            if(hasBluetoothPermissions()) collarClient?.searchNow()
-            else requestBluetoothPermissions() 
-        }
         showPetInformation()
     }
 
@@ -272,13 +244,40 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
             "Welcome, ${user.email ?: "User"}"
 
         findViewById<TextView>(R.id.textPetName).text =
-            profile?.name ?: "No pet profile yet"
+            profile?.name?.let { "Hi, $it!" } ?: "Add your pet"
+
+        showNextMeal()
 
         findViewById<TextView>(R.id.textConnection).text =
             "Disconnected"
 
         findViewById<TextView>(R.id.textActivity).text =
             "No data yet"
+    }
+
+    /** Next meal card: the time and portion saved on the schedule screen. */
+    private fun showNextMeal() {
+        val schedule = ScheduleStorage(this)
+        val textNextMeal = findViewById<TextView>(R.id.textNextMeal)
+        val textNextPortion = findViewById<TextView>(R.id.textNextPortion)
+
+        if (!schedule.hasSchedule()) {
+            textNextMeal.text = "Not set"
+            textNextPortion.text = "Set a schedule below"
+            return
+        }
+
+        // Write the time the way the phone does (6:00 PM or 18:00)
+        val time = Calendar.getInstance()
+        time.set(Calendar.HOUR_OF_DAY, schedule.hour)
+        time.set(Calendar.MINUTE, schedule.minute)
+        textNextMeal.text = DateFormat.getTimeFormat(this).format(time.time)
+
+        textNextPortion.text = when (schedule.portion) {
+            1 -> "Small portion"
+            3 -> "Large portion"
+            else -> "Medium portion"
+        }
     }
 
     override fun onStatus(message: String, connected: Boolean) {

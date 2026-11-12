@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Bottom bar with the 4 main screens, like the Stitch design.
+     Each screen adds it with <include layout="@layout/bottom_nav" />
+     and calls BottomNav.setUp(...) so its own tab is shown in teal. -->
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="72dp"
+    android:orientation="horizontal"
+    android:background="@drawable/bg_bottom_nav"
+    android:paddingTop="1dp">
+
+    <LinearLayout android:id="@+id/navHome" style="@style/Pt.NavItem">
+        <ImageView android:id="@+id/navHomeIcon" style="@style/Pt.NavIcon"
+            android:src="@drawable/ic_home" android:contentDescription="Home" />
+        <TextView android:id="@+id/navHomeText" style="@style/Pt.NavText"
+            android:text="Home" />
+    </LinearLayout>
+
+    <LinearLayout android:id="@+id/navFeeder" style="@style/Pt.NavItem">
+        <ImageView android:id="@+id/navFeederIcon" style="@style/Pt.NavIcon"
+            android:src="@drawable/ic_restaurant" android:contentDescription="Feeder" />
+        <TextView android:id="@+id/navFeederText" style="@style/Pt.NavText"
+            android:text="Feeder" />
+    </LinearLayout>
+
+    <LinearLayout android:id="@+id/navCollar" style="@style/Pt.NavItem">
+        <ImageView android:id="@+id/navCollarIcon" style="@style/Pt.NavIcon"
+            android:src="@drawable/ic_pets" android:contentDescription="Collar" />
+        <TextView android:id="@+id/navCollarText" style="@style/Pt.NavText"
+            android:text="Collar" />
+    </LinearLayout>
+
+    <LinearLayout android:id="@+id/navProfile" style="@style/Pt.NavItem">
+        <ImageView android:id="@+id/navProfileIcon" style="@style/Pt.NavIcon"
+            android:src="@drawable/ic_person" android:contentDescription="Profile" />
+        <TextView android:id="@+id/navProfileText" style="@style/Pt.NavText"
+            android:text="Profile" />
+    </LinearLayout>
+</LinearLayout>

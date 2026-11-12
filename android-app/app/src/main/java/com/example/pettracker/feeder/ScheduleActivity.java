@@ -9,6 +9,7 @@ import android.widget.Toast;
 import android.app.Activity;
 import android.app.AlertDialog;
 
+import com.example.pettracker.BottomNav;
 import com.example.pettracker.R;
 import com.example.pettracker.bluetooth.FeederConnection;
 import com.example.pettracker.bluetooth.FeederMessage;
@@ -24,6 +25,7 @@ public class ScheduleActivity extends Activity {
     private ScheduleStorage storage;
     private RadioGroup feedNowPortionGroup;
     private FeederConnection feeder;   // FD-1.3: Bluetooth connection to the feeder
+    private TextView feederStatusText;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -35,8 +37,9 @@ public class ScheduleActivity extends Activity {
         portionGroup = findViewById(R.id.portionGroup);
         currentScheduleText = findViewById(R.id.currentScheduleText);
         Button saveButton = findViewById(R.id.saveButton);
-     // Back arrow: closes this screen and returns to Home
-        findViewById(R.id.backButton).setOnClickListener(v -> finish());
+        // Bottom bar: this is the Feeder tab
+        BottomNav.setUp(this, BottomNav.FEEDER);
+        feederStatusText = findViewById(R.id.textFeederStatus);
         timePicker.setIs24HourView(true);
         storage = new ScheduleStorage(this);
 
@@ -51,6 +54,7 @@ public class ScheduleActivity extends Activity {
         feeder = new FeederConnection(this, new FeederConnection.Listener() {
             @Override
             public void onConnectionChanged(boolean connected) {
+                showFeederStatus(connected);
                 if (connected) sendTimeAndSchedule();
             }
 
@@ -96,6 +100,12 @@ public class ScheduleActivity extends Activity {
             feeder.send(FeederMessage.scheduleCommand(
                     storage.getHour(), storage.getMinute(), storage.getPortion()));
         }
+    }
+
+    /** Green "Feeder connected" or red "Feeder not connected" at the top of the screen. */
+    private void showFeederStatus(boolean connected) {
+        feederStatusText.setText(connected ? "Feeder connected" : "Feeder not connected");
+        feederStatusText.setTextColor(connected ? 0xFF15803D : 0xFFDC2626);
     }
 
     /**FD-1.2: If a schedule was saved before, show it on the screen.

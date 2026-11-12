@@ -8,12 +8,11 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.widget.Button
+import android.widget.RadioGroup
 import android.widget.TextView
 import android.widget.Toast
-import androidx.core.content.ContextCompat
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.database.ValueEventListener
 import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import com.example.pettracker.bluetooth.BluetoothLink
 import com.example.pettracker.bluetooth.ClassicBluetoothConnector
 import com.example.pettracker.bluetooth.FeederMessage
@@ -21,7 +20,12 @@ import com.example.pettracker.bluetooth.FeederReply
 import com.example.pettracker.bluetooth.LinkConfig
 import com.example.pettracker.bluetooth.LinkListener
 import com.example.pettracker.bluetooth.LinkState
+import com.example.pettracker.feeder.ScheduleActivity
 import com.example.pettracker.feeder.ScheduleStorage
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.database.ValueEventListener
+import java.text.DateFormat
+import java.util.Date
 import java.util.concurrent.Executors
 
 class HomeActivity : Activity(), BluetoothSppClient.Listener {
@@ -37,7 +41,6 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
     private var collarListener: ValueEventListener? = null
     private var feedingListener: ValueEventListener? = null
 
-
     // Feeder (FD-2.1): one Bluetooth link to PetFeeder_ESP32
     private var feederLink: BluetoothLink? = null
     private var feederConnected = false
@@ -45,6 +48,8 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
     private val feederSender = Executors.newSingleThreadExecutor() // sending can block, so not on the main thread
     private lateinit var textFeeder: TextView
     private lateinit var buttonFeedNow: Button
+    private lateinit var textFeedHistory: TextView
+    private lateinit var feedPortionGroup: RadioGroup
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -57,11 +62,6 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
             return
         }
 
-        ownerDatabase = OwnerDatabaseRepository(
-            ownerUid = user.uid,
-            databaseUrl = getString(R.string.firebase_database_url).trim()
-        )
-
         setContentView(R.layout.activity_home)
 
         textConnection = findViewById(R.id.textConnection)
@@ -69,10 +69,9 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
         searchButton = findViewById(R.id.buttonSearchCollar)
         textFeeder = findViewById(R.id.textFeeder)
         textFeedHistory = findViewById(R.id.textFeedHistory)
-        searchButton = findViewById(R.id.buttonSearchCollar)
         buttonFeedNow = findViewById(R.id.buttonFeedNow)
         feedPortionGroup = findViewById(R.id.homeFeedPortionGroup)
-        feedNowButton.setOnClickListener { sendFeedNowToCloud() }
+        buttonFeedNow.setOnClickListener { sendFeedNowToCloud() }
 
         val buttonProfile =
             findViewById<Button>(R.id.buttonProfile)
@@ -81,17 +80,15 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
             findViewById<Button>(R.id.buttonLogout)
 
         buttonProfile.setOnClickListener {
-
             startActivity(
                 Intent(this, ProfileActivity::class.java)
             )
         }
         findViewById<Button>(R.id.buttonSchedule).setOnClickListener {
-            startActivity(Intent(this, com.example.pettracker.feeder.ScheduleActivity::class.java))
+            startActivity(Intent(this, ScheduleActivity::class.java))
         }
 
         buttonLogout.setOnClickListener {
-
             // Logout from Firebase
             auth.signOut()
             detachCloudListeners()
@@ -126,7 +123,6 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
 
         showPetInformation()
         attachCloudListeners()
-
     }
 
     override fun onPause() {
@@ -160,7 +156,6 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
         else startBluetoothBackup()
     }
 
-
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == permissionRequest) {
@@ -169,9 +164,9 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
         }
     }
 
-    private fun startBluetooth() {
-        if (collarClient!= null) return
-        collarClient= BluetoothSppClient(this, this).also { it.start() }
+    private fun startBluetoothBackup() {
+        if (collarClient != null) return
+        collarClient = BluetoothSppClient(this, this).also { it.start() }
     }
 
     // ---------- Feeder (FD-2.1) ----------
@@ -280,9 +275,7 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
     }
 
     private fun showPetInformation() {
-
         val user = auth.currentUser ?: return
-
         val profile = database.getPetProfile(user.uid)
 
         findViewById<TextView>(R.id.textWelcome).text =
@@ -307,7 +300,7 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
 
     override fun onLineReceived(line: String) {
         val motion = CollarProtocol.parseMotion(line) ?: return
-         val uid = auth.currentUser?.uid ?: return
+        val uid = auth.currentUser?.uid ?: return
         val record = mapOf(
             "time" to System.currentTimeMillis(),
             "deviceTimeSeconds" to motion.timeSeconds,
@@ -318,23 +311,7 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
         PetCloudRepository(uid).collarReadingsRef().push().setValue(record)
     }
 
-    private fun returnToLogin() {
-
-        val intent = Intent(
-            this,
-            MainActivity::class.java
-        )
-
-        intent.flags =
-            Intent.FLAG_ACTIVITY_NEW_TASK or
-                    Intent.FLAG_ACTIVITY_CLEAR_TASK
-
-        startActivity(intent)
-        finish()
-    }
-}
-
-   private fun attachCloudListeners() {
+    private fun attachCloudListeners() {
         if (collarListener != null || feedingListener != null) return
         val uid = auth.currentUser?.uid ?: return
         cloud = PetCloudRepository(uid)
@@ -390,11 +367,11 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
             R.id.homeFeedLarge -> 3
             else -> 2
         }
-        feedNowButton.isEnabled = false
+        buttonFeedNow.isEnabled = false
         textFeeder.text = "Sending Feed Now command to Firebase…"
         cloud?.createFeedNow(portion) { commandId, error ->
             runOnUiThread {
-                feedNowButton.isEnabled = true
+                buttonFeedNow.isEnabled = true
                 if (error != null) {
                     textFeeder.text = "Could not save Feed Now command: $error"
                     cloud?.addAlert("command_error", error)
@@ -403,11 +380,22 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
                 }
             }
         } ?: run {
-            feedNowButton.isEnabled = true
+            buttonFeedNow.isEnabled = true
             textFeeder.text = "Firebase is not connected. Please sign in again."
         }
     }
 
+    private fun returnToLogin() {
+        val intent = Intent(
+            this,
+            MainActivity::class.java
+        )
 
+        intent.flags =
+            Intent.FLAG_ACTIVITY_NEW_TASK or
+                    Intent.FLAG_ACTIVITY_CLEAR_TASK
 
-
+        startActivity(intent)
+        finish()
+    }
+}

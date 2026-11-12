@@ -94,6 +94,20 @@
                 android:padding="16dp"
                 android:layout_marginBottom="20dp"/>
 
+            <TextView
+                android:id="@+id/textCollarBattery"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="48dp"
+                android:text="Collar battery: unavailable"
+                android:textSize="15sp"
+                android:textColor="@color/text_secondary"
+                android:background="@drawable/bg_card"
+                android:gravity="center_vertical"
+                android:padding="16dp"
+                android:layout_marginTop="-12dp"
+                android:layout_marginBottom="20dp"/>
+
             <!-- Latest activity -->
             <TextView
                 android:layout_width="match_parent"
@@ -128,6 +142,28 @@
                 android:layout_marginBottom="8dp"/>
 
             <TextView
+                android:id="@+id/textFeederConnection"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="56dp"
+                android:text="Waiting for feeder heartbeat"
+                android:textSize="15sp"
+                android:textColor="@color/text_secondary"
+                android:background="@drawable/bg_card"
+                android:gravity="center_vertical"
+                android:padding="16dp"
+                android:layout_marginBottom="8dp"/>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Feeder command status"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:textColor="@color/text_secondary"
+                android:layout_marginBottom="6dp"/>
+
+            <TextView
                 android:id="@+id/textFeeder"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -139,6 +175,37 @@
                 android:gravity="center_vertical"
                 android:padding="16dp"
                 android:layout_marginBottom="12dp"/>
+
+            <RadioGroup
+                android:id="@+id/homeFeedPortionGroup"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginBottom="8dp">
+
+                <RadioButton
+                    android:id="@+id/homeFeedSmall"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Small" />
+
+                <RadioButton
+                    android:id="@+id/homeFeedMedium"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:checked="true"
+                    android:text="Medium" />
+
+                <RadioButton
+                    android:id="@+id/homeFeedLarge"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Large" />
+            </RadioGroup>
+
 
             <Button
                 android:id="@+id/buttonFeedNow"
@@ -153,6 +220,28 @@
                 android:enabled="false"
                 android:alpha="0.5"
                 android:layout_marginBottom="28dp"/>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Feeding history"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:textColor="@color/text_primary"
+                android:layout_marginBottom="8dp"/>
+
+            <TextView
+                android:id="@+id/textFeedHistory"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="64dp"
+                android:text="No meals recorded yet"
+                android:textSize="14sp"
+                android:textColor="@color/text_secondary"
+                android:background="@drawable/bg_card"
+                android:padding="16dp"
+                android:layout_marginBottom="20dp"/>
+
 
             <!-- Main buttons: all teal -->
             <Button

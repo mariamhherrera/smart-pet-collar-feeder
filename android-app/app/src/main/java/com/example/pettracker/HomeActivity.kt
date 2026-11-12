@@ -12,6 +12,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.core.content.ContextCompat
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.database.ValueEventListener
 import androidx.core.app.ActivityCompat
 import com.example.pettracker.bluetooth.BluetoothLink
 import com.example.pettracker.bluetooth.ClassicBluetoothConnector
@@ -32,6 +33,10 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
     private lateinit var textActivity: TextView
     private lateinit var searchButton: Button
     private var permissionRequest = 410
+    private var cloud: PetCloudRepository? = null
+    private var collarListener: ValueEventListener? = null
+    private var feedingListener: ValueEventListener? = null
+
 
     // Feeder (FD-2.1): one Bluetooth link to PetFeeder_ESP32
     private var feederLink: BluetoothLink? = null
@@ -52,14 +57,22 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
             return
         }
 
+        ownerDatabase = OwnerDatabaseRepository(
+            ownerUid = user.uid,
+            databaseUrl = getString(R.string.firebase_database_url).trim()
+        )
+
         setContentView(R.layout.activity_home)
 
         textConnection = findViewById(R.id.textConnection)
         textActivity = findViewById(R.id.textActivity)
         searchButton = findViewById(R.id.buttonSearchCollar)
         textFeeder = findViewById(R.id.textFeeder)
+        textFeedHistory = findViewById(R.id.textFeedHistory)
+        searchButton = findViewById(R.id.buttonSearchCollar)
         buttonFeedNow = findViewById(R.id.buttonFeedNow)
-        buttonFeedNow.setOnClickListener { feedNow() }
+        feedPortionGroup = findViewById(R.id.homeFeedPortionGroup)
+        feedNowButton.setOnClickListener { sendFeedNowToCloud() }
 
         val buttonProfile =
             findViewById<Button>(R.id.buttonProfile)
@@ -81,7 +94,9 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
 
             // Logout from Firebase
             auth.signOut()
+            detachCloudListeners()
             collarClient?.stop()
+            collarClient = null
             stopFeeder()
             Toast.makeText(
                 this,
@@ -93,8 +108,8 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
         }
 
         searchButton.setOnClickListener {
-            if(hasBluetoothPermissions()) collarClient?.searchNow()
-            else requestBluetoothPermissions() 
+            if (hasBluetoothPermissions()) startBluetoothBackup()
+            else requestBluetoothPermissions()
         }
         showPetInformation()
     }
@@ -110,12 +125,13 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
         }
 
         showPetInformation()
-        if (hasBluetoothPermissions()) startBluetooth()
-        else requestBluetoothPermissions()
+        attachCloudListeners()
+
     }
 
     override fun onPause() {
         super.onPause()
+        detachCloudListeners()
         collarClient?.stop()
         collarClient = null
         stopFeeder()
@@ -141,18 +157,19 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
             arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)
         } else emptyArray()
         if (required.isNotEmpty()) ActivityCompat.requestPermissions(this, required, permissionRequest)
+        else startBluetoothBackup()
     }
+
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == permissionRequest) {
-            if (hasBluetoothPermissions()) startBluetooth()
-            else onStatus("Bluetooth permissions denied", false)
+            if (hasBluetoothPermissions()) startBluetoothBackup()
+            else textConnection.text = "Firebase connected · Bluetooth backup permission denied"
         }
     }
 
     private fun startBluetooth() {
-        startFeeder()
         if (collarClient!= null) return
         collarClient= BluetoothSppClient(this, this).also { it.start() }
     }
@@ -282,16 +299,23 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
     }
 
     override fun onStatus(message: String, connected: Boolean) {
-        if (!::textConnection.isInitialized) return
-        textConnection.text = message
-        textConnection.setTextColor(if (connected) 0xFF15803D.toInt() else 0xFFDC2626.toInt())
+         runOnUiThread {
+            textConnection.text = if (connected) "Bluetooth backup connected" else "Firebase primary · $message"
+            textConnection.setTextColor(if (connected) 0xFF15803D.toInt() else 0xFF64748B.toInt())
+        }
     }
 
     override fun onLineReceived(line: String) {
         val motion = CollarProtocol.parseMotion(line) ?: return
-        textActivity.text= "Motion: ax %.2f  ay %.2f  az %.2f g".format(
-            motion.ax, motion.ay, motion.az
+         val uid = auth.currentUser?.uid ?: return
+        val record = mapOf(
+            "time" to System.currentTimeMillis(),
+            "deviceTimeSeconds" to motion.timeSeconds,
+            "ax" to motion.ax, "ay" to motion.ay, "az" to motion.az,
+            "gx" to motion.gx, "gy" to motion.gy, "gz" to motion.gz,
+            "source" to "bluetooth_backup"
         )
+        PetCloudRepository(uid).collarReadingsRef().push().setValue(record)
     }
 
     private fun returnToLogin() {
@@ -309,6 +333,80 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
         finish()
     }
 }
+
+   private fun attachCloudListeners() {
+        if (collarListener != null || feedingListener != null) return
+        val uid = auth.currentUser?.uid ?: return
+        cloud = PetCloudRepository(uid)
+        textConnection.text = "Connected through Firebase"
+        textConnection.setTextColor(0xFF15803D.toInt())
+
+        collarListener = cloud?.listenToLatestCollar(
+            onValue = { row ->
+                runOnUiThread {
+                    if (row == null) {
+                        textActivity.text = "Waiting for collar readings in Firebase…"
+                    } else {
+                        val ax = row["ax"]?.toString() ?: row["accelX"]?.toString() ?: "—"
+                        val ay = row["ay"]?.toString() ?: row["accelY"]?.toString() ?: "—"
+                        val az = row["az"]?.toString() ?: row["accelZ"]?.toString() ?: "—"
+                        val gx = row["gx"]?.toString() ?: "—"
+                        val gy = row["gy"]?.toString() ?: "—"
+                        val gz = row["gz"]?.toString() ?: "—"
+                        val time = row["time"]?.toString() ?: row["timestamp"]?.toString() ?: "—"
+                        textActivity.text = "LIVE COLLAR DATA\nTime: $time\nAcceleration (g): X $ax | Y $ay | Z $az\nGyroscope (°/s): X $gx | Y $gy | Z $gz"
+                    }
+                }
+            },
+            onError = { message -> runOnUiThread { textConnection.text = "Firebase collar error: $message" } }
+        )
+
+        feedingListener = cloud?.listenToFeedings(
+            onValue = { rows ->
+                runOnUiThread {
+                    textFeedHistory.text = if (rows.isEmpty()) "No meals recorded yet" else rows.joinToString("\n\n") { row ->
+                        val timeValue = (row["time"] as? Number)?.toLong()
+                            ?: (row["time"] as? String)?.toLongOrNull() ?: 0L
+                        val time = if (timeValue > 0) DateFormat.getDateTimeInstance().format(Date(timeValue)) else "Time pending"
+                        "Time: $time\nPortion: ${row["portion"] ?: "—"}\nStatus: ${row["status"] ?: "unknown"}\nSource: ${row["source"] ?: "device"}"
+                    }
+                }
+            },
+            onError = { message -> runOnUiThread { textFeeder.text = "Firebase feed history error: $message" } }
+        )
+    }
+
+    private fun detachCloudListeners() {
+        collarListener?.let { cloud?.removeCollarListener(it) }
+        feedingListener?.let { cloud?.removeFeedingsListener(it) }
+        collarListener = null
+        feedingListener = null
+        cloud = null
+    }
+
+    private fun sendFeedNowToCloud() {
+        val portion = when (feedPortionGroup.checkedRadioButtonId) {
+            R.id.homeFeedSmall -> 1
+            R.id.homeFeedLarge -> 3
+            else -> 2
+        }
+        feedNowButton.isEnabled = false
+        textFeeder.text = "Sending Feed Now command to Firebase…"
+        cloud?.createFeedNow(portion) { commandId, error ->
+            runOnUiThread {
+                feedNowButton.isEnabled = true
+                if (error != null) {
+                    textFeeder.text = "Could not save Feed Now command: $error"
+                    cloud?.addAlert("command_error", error)
+                } else {
+                    textFeeder.text = "Feed Now queued in Firebase (command ${commandId?.takeLast(6)}). Waiting for feeder confirmation."
+                }
+            }
+        } ?: run {
+            feedNowButton.isEnabled = true
+            textFeeder.text = "Firebase is not connected. Please sign in again."
+        }
+    }
 
 
 

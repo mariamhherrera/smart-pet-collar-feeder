@@ -40,3 +40,6 @@ __pycache__/
 
 # Mac
 .DS_Store
+
+# Keep ESP32 WiFi and Firebase credentials private
+**/secrets.h

@@ -27,7 +27,8 @@
         <item name="android:fontFamily">@font/plus_jakarta_sans_bold</item>
     </style>
 
-    <!-- ===== Home screen styles (Stitch look) ===== -->
+    <!-- ===== Home screen styles ===== -->
+    <style name="Pt" />
 
     <!-- White rounded card -->
     <style name="Pt.Card">

@@ -131,6 +131,19 @@
                 android:padding="16dp"
                 android:layout_marginBottom="20dp"/>
 
+            <TextView
+                android:id="@+id/textHeartRate"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="56dp"
+                android:text="Heart rate: waiting for collar data"
+                android:textSize="16sp"
+                android:textColor="@color/text_primary"
+                android:background="@drawable/bg_card"
+                android:gravity="center_vertical"
+                android:padding="16dp"
+                android:layout_marginBottom="20dp"/>
+
             <!-- Feeder (FD-2.1) -->
             <TextView
                 android:layout_width="match_parent"
@@ -294,4 +307,3 @@
 
         </LinearLayout>
     </LinearLayout>
-</ScrollView>

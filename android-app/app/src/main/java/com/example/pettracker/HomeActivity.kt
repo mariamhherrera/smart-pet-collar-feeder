@@ -35,6 +35,8 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
     private var collarClient: BluetoothSppClient? = null
     private lateinit var textConnection: TextView
     private lateinit var textActivity: TextView
+    // UPDATED: Home-screen heart-rate value from Firebase or Bluetooth backup.
+    private lateinit var textHeartRate: TextView
     private lateinit var searchButton: Button
     private var permissionRequest = 410
     private var cloud: PetCloudRepository? = null
@@ -66,6 +68,7 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
 
         textConnection = findViewById(R.id.textConnection)
         textActivity = findViewById(R.id.textActivity)
+        textHeartRate = findViewById(R.id.textHeartRate)
         searchButton = findViewById(R.id.buttonSearchCollar)
         textFeeder = findViewById(R.id.textFeeder)
         textFeedHistory = findViewById(R.id.textFeedHistory)
@@ -306,6 +309,7 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
             "deviceTimeSeconds" to motion.timeSeconds,
             "ax" to motion.ax, "ay" to motion.ay, "az" to motion.az,
             "gx" to motion.gx, "gy" to motion.gy, "gz" to motion.gz,
+            "heartRateBpm" to motion.heartRateBpm,
             "source" to "bluetooth_backup"
         )
         PetCloudRepository(uid).collarReadingsRef().push().setValue(record)
@@ -330,6 +334,9 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
                         val gx = row["gx"]?.toString() ?: "—"
                         val gy = row["gy"]?.toString() ?: "—"
                         val gz = row["gz"]?.toString() ?: "—"
+                        val heartRate = row["heartRateBpm"]?.toString()
+                            ?: row["heartRate"]?.toString() ?: "—"
+                        textHeartRate.text = if (heartRate == "—") "Heart rate: waiting for collar data" else "Heart rate: $heartRate BPM"
                         val time = row["time"]?.toString() ?: row["timestamp"]?.toString() ?: "—"
                         textActivity.text = "LIVE COLLAR DATA\nTime: $time\nAcceleration (g): X $ax | Y $ay | Z $az\nGyroscope (°/s): X $gx | Y $gy | Z $gz"
                     }

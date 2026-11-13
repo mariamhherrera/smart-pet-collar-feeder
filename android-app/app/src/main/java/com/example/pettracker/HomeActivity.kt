@@ -35,8 +35,8 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
     private var collarClient: BluetoothSppClient? = null
     private lateinit var textConnection: TextView
     private lateinit var textActivity: TextView
-    // UPDATED: Home-screen heart-rate value from Firebase or Bluetooth backup.
     private lateinit var textHeartRate: TextView
+    private lateinit var textCollarBattery: TextView
     private lateinit var searchButton: Button
     private var permissionRequest = 410
     private var cloud: PetCloudRepository? = null
@@ -68,8 +68,9 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
 
         textConnection = findViewById(R.id.textConnection)
         textActivity = findViewById(R.id.textActivity)
-        textHeartRate = findViewById(R.id.textHeartRate)
         searchButton = findViewById(R.id.buttonSearchCollar)
+        textHeartRate = findViewById(R.id.textHeartRate)
+        textCollarBattery = findViewById(R.id.textCollarBattery)
         textFeeder = findViewById(R.id.textFeeder)
         textFeedHistory = findViewById(R.id.textFeedHistory)
         buttonFeedNow = findViewById(R.id.buttonFeedNow)
@@ -312,7 +313,7 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
             "heartRateBpm" to motion.heartRateBpm,
             "source" to "bluetooth_backup"
         )
-        PetCloudRepository(uid).collarReadingsRef().push().setValue(record)
+        PetCloudRepository(uid).collarLatestRef().updateChildren(record) // UPDATED: preserve ESP32 battery fields during Bluetooth fallback updates.
     }
 
     private fun attachCloudListeners() {
@@ -337,6 +338,8 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
                         val heartRate = row["heartRateBpm"]?.toString()
                             ?: row["heartRate"]?.toString() ?: "—"
                         textHeartRate.text = if (heartRate == "—") "Heart rate: waiting for collar data" else "Heart rate: $heartRate BPM"
+                        val batteryPercent = row["batteryPercent"]?.toString()
+                        textCollarBattery.text = batteryPercent?.let { "Collar battery: $it%" } ?: "Collar battery: unavailable"
                         val time = row["time"]?.toString() ?: row["timestamp"]?.toString() ?: "—"
                         textActivity.text = "LIVE COLLAR DATA\nTime: $time\nAcceleration (g): X $ax | Y $ay | Z $az\nGyroscope (°/s): X $gx | Y $gy | Z $gz"
                     }

@@ -10,9 +10,14 @@ import android.app.Activity;
 import android.app.AlertDialog;
 
 import com.example.pettracker.R;
+import com.example.pettracker.PetCloudRepository;
+import com.google.firebase.auth.FirebaseAuth;
 import com.example.pettracker.bluetooth.FeederConnection;
 import com.example.pettracker.bluetooth.FeederMessage;
 import com.example.pettracker.bluetooth.FeederReply;
+import org.jetbrains.annotations.NotNull;
+import java.util.Locale;
+import kotlin.Unit;
 
 /**FD-1.1: Screen where the owner picks the feeding time and portion.
  */
@@ -55,7 +60,7 @@ public class ScheduleActivity extends Activity {
             }
 
             @Override
-            public void onReply(FeederReply reply) {
+            public void onReply(@NotNull FeederReply reply) {
                 if (reply instanceof FeederReply.TimeSet) return; // nothing to tell the owner
                 Toast.makeText(ScheduleActivity.this, FeederMessage.screenText(reply),
                         Toast.LENGTH_SHORT).show();
@@ -121,6 +126,18 @@ public class ScheduleActivity extends Activity {
         storage.save(hour, minute, portion);
         showCurrentSchedule(hour, minute, portion);
 
+        String uid = FirebaseAuth.getInstance().getUid();
+        if (uid != null) {
+            new PetCloudRepository(uid).saveSchedule(hour, minute, portion, (id, error) -> {
+                runOnUiThread(() -> {
+                    if (error != null) {
+                        Toast.makeText(this, "Schedule saved locally; Firebase error: " + error, Toast.LENGTH_LONG).show();
+                    }
+                });
+                return Unit.INSTANCE;
+            });
+        }
+
         // FD-1.3: send the schedule to the feeder. If it is not connected right now,
         // sendTimeAndSchedule() sends the saved schedule as soon as it connects.
         if (feeder.isConnected()) {
@@ -133,14 +150,13 @@ public class ScheduleActivity extends Activity {
     }
 
     private void showCurrentSchedule(int hour, int minute, int portion) {
-        currentScheduleText.setText("Saved: " + formatTime(hour, minute)
-                + ", " + portionName(portion) + " portion");
+        currentScheduleText.setText(String.format(Locale.getDefault(), "Saved: %s, %s portion", formatTime(hour, minute), portionName(portion)));
     }
 
     /**Time written as 07:30 instead of 7:30.
      */
     private String formatTime(int hour, int minute) {
-        return String.format("%02d:%02d", hour, minute);
+        return String.format(Locale.getDefault(), "%02d:%02d", hour, minute);
     }
 
     /**Turns the selected button into 1 (small), 2 (medium) or 3 (large).
@@ -171,9 +187,20 @@ public class ScheduleActivity extends Activity {
         int portion = getFeedNowPortion();
         new AlertDialog.Builder(this, android.R.style.Theme_Material_Light_Dialog_Alert)
                 .setTitle("Feed now?")
-                .setMessage("This gives your pet one " + portionName(portion).toLowerCase() + " portion right away.")
+                .setMessage("This gives your pet one " + portionName(portion).toLowerCase(Locale.getDefault()) + " portion right away.")
                 .setPositiveButton("Feed", (dialog, which) -> {
                     // FD-2.2: send the command to the feeder, e.g. FEED,2
+                    String uid = FirebaseAuth.getInstance().getUid();
+                    if (uid != null) {
+                        new PetCloudRepository(uid).createFeedNow(portion, (commandId, error) -> {
+                            runOnUiThread(() -> {
+                                if (error != null) {
+                                    Toast.makeText(this, "Firebase feeding record failed: " + error, Toast.LENGTH_LONG).show();
+                                }
+                            });
+                            return Unit.INSTANCE;
+                        });
+                    }
                     if (feeder.isConnected()) {
                         feeder.send(FeederMessage.feedCommand(portion));
                     } else {
@@ -191,7 +218,4 @@ public class ScheduleActivity extends Activity {
         if (id == R.id.feedNowLarge) return 3;
         return 2;
     }
-
-
 }
-

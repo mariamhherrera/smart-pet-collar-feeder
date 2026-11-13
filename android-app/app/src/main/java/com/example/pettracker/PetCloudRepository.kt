@@ -10,16 +10,15 @@ import java.util.Calendar
 
 class PetCloudRepository(uid: String) {
     private val userRoot: DatabaseReference =
-        FirebaseDatabase.getInstance().reference.child("users").child(uid)
+        FirebaseDatabase.getInstance().reference.child("owners").child(uid) // UPDATED: match ESP32 firmware and database.rules.json owner path
 
     fun listenToLatestCollar(onValue: (Map<String, Any>?) -> Unit,
                              onError: (String) -> Unit): ValueEventListener {
-        val query = userRoot.child("collar").child("readings").limitToLast(1)
+        val query = userRoot.child("collar").child("latest")
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
-                val latest = snapshot.children.lastOrNull()
                 @Suppress("UNCHECKED_CAST")
-                onValue(latest?.value as? Map<String, Any>)
+                onValue(snapshot.value as? Map<String, Any>)
             }
             override fun onCancelled(error: DatabaseError) { onError(error.message) }
         }
@@ -27,8 +26,8 @@ class PetCloudRepository(uid: String) {
         return listener
     }
 
-    fun collarReadingsRef(): DatabaseReference =
-        userRoot.child("collar").child("readings")
+    fun collarLatestRef(): DatabaseReference =
+        userRoot.child("collar").child("latest")
 
     fun listenToCollarStatus(onValue: (Map<String, Any>?) -> Unit,
                              onError: (String) -> Unit): ValueEventListener =
@@ -162,6 +161,12 @@ class PetCloudRepository(uid: String) {
             .addOnFailureListener { onComplete(null, it.localizedMessage ?: "Firebase write failed") }
     }
 
+    fun updateFeedingStatus(feedingId: String, status: String) {
+        userRoot.child("feeder").child("feedings").child(feedingId).updateChildren(
+            mapOf("status" to status, "updatedAt" to System.currentTimeMillis())
+        )
+    }
+
     fun addAlert(type: String, message: String) {
         userRoot.child("alerts").push().setValue(
             mapOf("type" to type, "message" to message, "time" to System.currentTimeMillis(), "status" to "new")
@@ -169,7 +174,7 @@ class PetCloudRepository(uid: String) {
     }
 
     fun removeCollarListener(listener: ValueEventListener) {
-        userRoot.child("collar").child("readings").limitToLast(1).removeEventListener(listener)
+        userRoot.child("collar").child("latest").removeEventListener(listener)
     }
 
     fun removeFeedingsListener(listener: ValueEventListener) {

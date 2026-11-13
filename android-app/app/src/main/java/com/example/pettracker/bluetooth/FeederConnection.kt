@@ -1,7 +1,11 @@
 package com.example.pettracker.bluetooth
 
+import android.Manifest
 import android.app.Activity
 import android.bluetooth.BluetoothManager
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.core.content.ContextCompat
 import java.util.concurrent.Executors
 
 /**
@@ -36,7 +40,16 @@ class FeederConnection(
     /** Starts connecting. Returns false when the phone has no Bluetooth. */
     fun start(): Boolean {
         if (link != null) return true
+        val hasPermission = if (Build.VERSION.SDK_INT >= 31) {
+            ContextCompat.checkSelfPermission(activity, Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED &&
+                ContextCompat.checkSelfPermission(activity, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
+        } else if (Build.VERSION.SDK_INT >= 23) {
+            ContextCompat.checkSelfPermission(activity, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        } else true
+        if (!hasPermission) return false
+
         val adapter = activity.getSystemService(BluetoothManager::class.java)?.adapter ?: return false
+        if (!adapter.isEnabled) return false
         connectionNumber++
         val number = connectionNumber
         val connector = ClassicBluetoothConnector(activity, adapter, FeederMessage.DEVICE_NAME)

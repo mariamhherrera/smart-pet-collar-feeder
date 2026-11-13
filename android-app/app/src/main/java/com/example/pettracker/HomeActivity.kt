@@ -109,7 +109,10 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
         }
 
         searchButton.setOnClickListener {
-            if (hasBluetoothPermissions()) startBluetoothBackup()
+            if (hasBluetoothPermissions()) {
+                startBluetoothBackup()
+                startFeeder()
+            }
             else requestBluetoothPermissions()
         }
         showPetInformation()
@@ -127,6 +130,7 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
 
         showPetInformation()
         attachCloudListeners()
+        if (hasBluetoothPermissions()) startFeeder()
     }
 
     override fun onPause() {
@@ -163,7 +167,10 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == permissionRequest) {
-            if (hasBluetoothPermissions()) startBluetoothBackup()
+            if (hasBluetoothPermissions()) {
+                startBluetoothBackup()
+                startFeeder()
+            }
             else textConnection.text = "Firebase connected · Bluetooth backup permission denied"
         }
     }
@@ -177,10 +184,10 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
 
     /** Starts connecting to the feeder in the background. */
     private fun startFeeder() {
-        if (feederLink != null) return
+        if (feederLink != null || !hasBluetoothPermissions()) return
         val adapter = getSystemService(BluetoothManager::class.java)?.adapter
-        if (adapter == null) {
-            showFeederStatus("This phone has no Bluetooth", false)
+        if (adapter == null || !adapter.isEnabled) {
+            showFeederStatus("Firebase feeder control ready · Bluetooth backup unavailable", false)
             return
         }
         val connector = ClassicBluetoothConnector(this, adapter, FeederMessage.DEVICE_NAME)
@@ -198,18 +205,22 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
         feederConnectionNumber++ // from now on, messages from the old connection are ignored
     }
 
-    /** Called when Feed Now is tapped: sends FEED to the feeder. */
-    private fun feedNow() {
-        val link = feederLink ?: return
+    /** Called only when the Firebase Feed Now write fails: sends the Bluetooth backup. */
+    private fun feedNow(portion: Int) {
+        val link = feederLink ?: run {
+            setFeedNowEnabled(cloud != null)
+            showFeederStatus("Bluetooth backup is not connected", false)
+            return
+        }
         setFeedNowEnabled(false)              // one tap = one command, no double taps
-        showFeederStatus("Sending…", true)
+        showFeederStatus("Firebase unavailable · sending Bluetooth backup…", true)
 
         feederSender.execute {
-            val sent = link.send(FeederMessage.FEED)
+            val sent = link.send(FeederMessage.feedCommand(portion))
             runOnUiThread {
                 if (!sent) showFeederStatus("Could not reach the feeder", false)
                 // Same 3 seconds as the feeder's cooldown, then the button works again
-                buttonFeedNow.postDelayed({ setFeedNowEnabled(feederConnected) }, FEED_LOCK_MS)
+                buttonFeedNow.postDelayed({ setFeedNowEnabled(cloud != null) }, FEED_LOCK_MS)
             }
         }
     }
@@ -221,8 +232,7 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
             runOnUiThread {
                 if (number != feederConnectionNumber) return@runOnUiThread
                 feederConnected = state == LinkState.CONNECTED
-                setFeedNowEnabled(feederConnected)
-                if (feederConnected) sendTimeAndSchedule()
+                setFeedNowEnabled(cloud != null)
                 when (state) {
                     LinkState.CONNECTED -> showFeederStatus("Feeder connected", true)
                     LinkState.SEARCHING -> showFeederStatus("Searching for the feeder…", false)
@@ -307,9 +317,10 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
         val uid = auth.currentUser?.uid ?: return
         val record = mapOf(
             "time" to System.currentTimeMillis(),
+            "receivedAt" to System.currentTimeMillis(),
             "deviceTimeSeconds" to motion.timeSeconds,
-            "ax" to motion.ax, "ay" to motion.ay, "az" to motion.az,
-            "gx" to motion.gx, "gy" to motion.gy, "gz" to motion.gz,
+            "accelerationG" to mapOf("x" to motion.ax, "y" to motion.ay, "z" to motion.az),
+            "gyroscopeDegreesPerSecond" to mapOf("x" to motion.gx, "y" to motion.gy, "z" to motion.gz),
             "heartRateBpm" to motion.heartRateBpm,
             "source" to "bluetooth_backup"
         )
@@ -320,6 +331,7 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
         if (collarListener != null || feedingListener != null) return
         val uid = auth.currentUser?.uid ?: return
         cloud = PetCloudRepository(uid)
+        setFeedNowEnabled(true)
         textConnection.text = "Connected through Firebase"
         textConnection.setTextColor(0xFF15803D.toInt())
 
@@ -329,18 +341,25 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
                     if (row == null) {
                         textActivity.text = "Waiting for collar readings in Firebase…"
                     } else {
-                        val ax = row["ax"]?.toString() ?: row["accelX"]?.toString() ?: "—"
-                        val ay = row["ay"]?.toString() ?: row["accelY"]?.toString() ?: "—"
-                        val az = row["az"]?.toString() ?: row["accelZ"]?.toString() ?: "—"
-                        val gx = row["gx"]?.toString() ?: "—"
-                        val gy = row["gy"]?.toString() ?: "—"
-                        val gz = row["gz"]?.toString() ?: "—"
+                        val acceleration = row["accelerationG"] as? Map<*, *>
+                        val gyroscope = row["gyroscopeDegreesPerSecond"] as? Map<*, *>
+                        val ax = acceleration?.get("x")?.toString() ?: row["ax"]?.toString() ?: row["accelX"]?.toString() ?: "—"
+                        val ay = acceleration?.get("y")?.toString() ?: row["ay"]?.toString() ?: row["accelY"]?.toString() ?: "—"
+                        val az = acceleration?.get("z")?.toString() ?: row["az"]?.toString() ?: row["accelZ"]?.toString() ?: "—"
+                        val gx = gyroscope?.get("x")?.toString() ?: row["gx"]?.toString() ?: "—"
+                        val gy = gyroscope?.get("y")?.toString() ?: row["gy"]?.toString() ?: "—"
+                        val gz = gyroscope?.get("z")?.toString() ?: row["gz"]?.toString() ?: "—"
                         val heartRate = row["heartRateBpm"]?.toString()
                             ?: row["heartRate"]?.toString() ?: "—"
                         textHeartRate.text = if (heartRate == "—") "Heart rate: waiting for collar data" else "Heart rate: $heartRate BPM"
                         val batteryPercent = row["batteryPercent"]?.toString()
                         textCollarBattery.text = batteryPercent?.let { "Collar battery: $it%" } ?: "Collar battery: unavailable"
-                        val time = row["time"]?.toString() ?: row["timestamp"]?.toString() ?: "—"
+                        val timeValue = (row["receivedAt"] as? Number)?.toLong()
+                            ?: (row["time"] as? Number)?.toLong()
+                            ?: (row["timestamp"] as? Number)?.toLong()
+                        val time = timeValue?.takeIf { it > 0L }?.let {
+                            DateFormat.getDateTimeInstance().format(Date(it))
+                        } ?: row["deviceTimeSeconds"]?.toString() ?: "—"
                         textActivity.text = "LIVE COLLAR DATA\nTime: $time\nAcceleration (g): X $ax | Y $ay | Z $az\nGyroscope (°/s): X $gx | Y $gy | Z $gz"
                     }
                 }
@@ -381,17 +400,24 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
         textFeeder.text = "Sending Feed Now command to Firebase…"
         cloud?.createFeedNow(portion) { commandId, error ->
             runOnUiThread {
-                buttonFeedNow.isEnabled = true
                 if (error != null) {
-                    textFeeder.text = "Could not save Feed Now command: $error"
                     cloud?.addAlert("command_error", error)
+                    if (feederConnected) {
+                        feedNow(portion)
+                    } else {
+                        setFeedNowEnabled(true)
+                        textFeeder.text = "Could not save Feed Now command: $error. Bluetooth backup is unavailable."
+                    }
                 } else {
+                    setFeedNowEnabled(true)
                     textFeeder.text = "Feed Now queued in Firebase (command ${commandId?.takeLast(6)}). Waiting for feeder confirmation."
                 }
             }
         } ?: run {
-            buttonFeedNow.isEnabled = true
-            textFeeder.text = "Firebase is not connected. Please sign in again."
+            if (feederConnected) feedNow(portion) else {
+                setFeedNowEnabled(true)
+                textFeeder.text = "Firebase is not connected and Bluetooth backup is unavailable."
+            }
         }
     }
 

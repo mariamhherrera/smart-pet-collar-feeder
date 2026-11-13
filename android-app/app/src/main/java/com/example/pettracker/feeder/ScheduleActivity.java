@@ -29,6 +29,7 @@ public class ScheduleActivity extends Activity {
     private ScheduleStorage storage;
     private RadioGroup feedNowPortionGroup;
     private FeederConnection feeder;   // FD-1.3: Bluetooth connection to the feeder
+    private boolean bluetoothScheduleBackupRequired = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -56,7 +57,7 @@ public class ScheduleActivity extends Activity {
         feeder = new FeederConnection(this, new FeederConnection.Listener() {
             @Override
             public void onConnectionChanged(boolean connected) {
-                if (connected) sendTimeAndSchedule();
+                if (connected && bluetoothScheduleBackupRequired) sendTimeAndSchedule();
             }
 
             @Override
@@ -127,26 +128,34 @@ public class ScheduleActivity extends Activity {
         showCurrentSchedule(hour, minute, portion);
 
         String uid = FirebaseAuth.getInstance().getUid();
-        if (uid != null) {
-            new PetCloudRepository(uid).saveSchedule(hour, minute, portion, (id, error) -> {
-                runOnUiThread(() -> {
-                    if (error != null) {
-                        Toast.makeText(this, "Schedule saved locally; Firebase error: " + error, Toast.LENGTH_LONG).show();
-                    }
-                });
-                return Unit.INSTANCE;
-            });
+        if (uid == null) {
+            bluetoothScheduleBackupRequired = true;
+            if (feeder.isConnected()) {
+                sendTimeAndSchedule();
+                Toast.makeText(this, "Firebase sign-in unavailable; schedule sent by Bluetooth backup", Toast.LENGTH_LONG).show();
+            } else {
+                Toast.makeText(this, "Schedule saved locally, but Firebase is not signed in", Toast.LENGTH_LONG).show();
+            }
+            return;
         }
 
-        // FD-1.3: send the schedule to the feeder. If it is not connected right now,
-        // sendTimeAndSchedule() sends the saved schedule as soon as it connects.
-        if (feeder.isConnected()) {
-            Toast.makeText(this, "Schedule saved", Toast.LENGTH_SHORT).show();
-            sendTimeAndSchedule();
-        } else {
-            Toast.makeText(this, "Schedule saved. It will be sent when the feeder connects.",
-                    Toast.LENGTH_LONG).show();
-        }
+        new PetCloudRepository(uid).saveSchedule(hour, minute, portion, (id, error) -> {
+            runOnUiThread(() -> {
+                if (error == null) {
+                    bluetoothScheduleBackupRequired = false;
+                    Toast.makeText(this, "Schedule saved to Firebase", Toast.LENGTH_SHORT).show();
+                } else {
+                    bluetoothScheduleBackupRequired = true;
+                    if (feeder.isConnected()) {
+                        sendTimeAndSchedule();
+                        Toast.makeText(this, "Firebase unavailable; schedule sent by Bluetooth backup", Toast.LENGTH_LONG).show();
+                    } else {
+                        Toast.makeText(this, "Schedule saved locally; Firebase error: " + error, Toast.LENGTH_LONG).show();
+                    }
+                }
+            });
+            return Unit.INSTANCE;
+        });
     }
 
     private void showCurrentSchedule(int hour, int minute, int portion) {
@@ -189,22 +198,29 @@ public class ScheduleActivity extends Activity {
                 .setTitle("Feed now?")
                 .setMessage("This gives your pet one " + portionName(portion).toLowerCase(Locale.getDefault()) + " portion right away.")
                 .setPositiveButton("Feed", (dialog, which) -> {
-                    // FD-2.2: send the command to the feeder, e.g. FEED,2
                     String uid = FirebaseAuth.getInstance().getUid();
                     if (uid != null) {
                         new PetCloudRepository(uid).createFeedNow(portion, (commandId, error) -> {
                             runOnUiThread(() -> {
                                 if (error != null) {
-                                    Toast.makeText(this, "Firebase feeding record failed: " + error, Toast.LENGTH_LONG).show();
+                                    if (feeder.isConnected()) {
+                                        feeder.send(FeederMessage.feedCommand(portion));
+                                        Toast.makeText(this, "Firebase unavailable; Feed Now sent by Bluetooth backup", Toast.LENGTH_LONG).show();
+                                    } else {
+                                        Toast.makeText(this, "Firebase feeding record failed: " + error, Toast.LENGTH_LONG).show();
+                                    }
+                                } else {
+                                    Toast.makeText(this, "Feed Now command saved to Firebase", Toast.LENGTH_SHORT).show();
                                 }
                             });
                             return Unit.INSTANCE;
                         });
-                    }
-                    if (feeder.isConnected()) {
-                        feeder.send(FeederMessage.feedCommand(portion));
                     } else {
-                        Toast.makeText(this, "Feeder not connected", Toast.LENGTH_SHORT).show();
+                        if (feeder.isConnected()) {
+                            feeder.send(FeederMessage.feedCommand(portion));
+                        } else {
+                            Toast.makeText(this, "Firebase is not signed in and feeder is not connected", Toast.LENGTH_SHORT).show();
+                        }
                     }
                 })
                 .setNegativeButton("Cancel", null)

@@ -89,6 +89,8 @@ class PetCloudRepository(uid: String) {
         }
         val command = mapOf(
             "type" to "FEED_NOW",
+            "command" to "FEED",
+            "source" to "manual",
             "portion" to portion,
             "status" to "pending",
             "createdAt" to now,
@@ -144,6 +146,8 @@ class PetCloudRepository(uid: String) {
         )
         val command = mapOf(
             "type" to "SET_SCHEDULE",
+            "command" to "SCHEDULE",
+            "source" to "app",
             "hour" to hour,
             "minute" to minute,
             "portion" to portion,

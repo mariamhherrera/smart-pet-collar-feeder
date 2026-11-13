@@ -88,6 +88,9 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
                 Intent(this, ProfileActivity::class.java)
             )
         }
+        findViewById<Button>(R.id.buttonCollar).setOnClickListener {
+            startActivity(Intent(this, CollarActivity::class.java))
+        }
         findViewById<Button>(R.id.buttonSchedule).setOnClickListener {
             startActivity(Intent(this, ScheduleActivity::class.java))
         }

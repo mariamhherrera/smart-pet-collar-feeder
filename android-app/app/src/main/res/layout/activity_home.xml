@@ -269,6 +269,19 @@
                 android:background="@drawable/bg_primary_button"
                 android:layout_marginBottom="12dp"/>
 
+            <!-- UI-5: opens the Collar page -->
+            <Button
+                android:id="@+id/buttonCollar"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:text="Collar vitals"
+                android:textAllCaps="false"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="#FFFFFF"
+                android:background="@drawable/bg_primary_button"
+                android:layout_marginBottom="12dp"/>
+
             <Button
                 android:id="@+id/buttonProfile"
                 android:layout_width="match_parent"

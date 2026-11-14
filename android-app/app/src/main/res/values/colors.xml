@@ -3,11 +3,23 @@
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
 
-    <!-- PetTracker colors -->
+    <!-- PetTracker colors (from our Stitch design) -->
     <color name="primary">#0D9488</color>
     <color name="primary_dark">#0F766E</color>
     <color name="primary_light">#CCFBF1</color>
-    <color name="background">#F1F5F9</color>
+    <color name="background">#F8F9FF</color>
     <color name="text_primary">#0F172A</color>
     <color name="text_secondary">#475569</color>
+    <color name="text_muted">#94A3B8</color>
+    <color name="card_border">#E2E8F0</color>
+    <color name="tile">#EFF4FF</color>
+
+    <!-- Orange: everything about feeding -->
+    <color name="accent">#EA580C</color>
+    <color name="accent_dark">#C2410C</color>
+    <color name="accent_light">#FFEDD5</color>
+
+    <!-- Red: alerts and log out -->
+    <color name="heart">#BA1A1A</color>
+    <color name="heart_light">#FFDAD6</color>
 </resources>

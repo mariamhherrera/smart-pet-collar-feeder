@@ -9,12 +9,14 @@ import java.util.Calendar
 
 
 class PetCloudRepository(uid: String) {
+    // "owners" matches database.rules.json and the collar firmware (COM-3.2).
+    // ("users" was refused by the rules, so nothing could be read or written.)
     private val userRoot: DatabaseReference =
-        FirebaseDatabase.getInstance().reference.child("owners").child(uid) // UPDATED: match ESP32 firmware and database.rules.json owner path
+        FirebaseDatabase.getInstance().reference.child("owners").child(uid)
 
+    /** The newest collar reading. The ESP32-S2 overwrites collar/latest every 5 seconds. */
     fun listenToLatestCollar(onValue: (Map<String, Any>?) -> Unit,
                              onError: (String) -> Unit): ValueEventListener {
-        val query = userRoot.child("collar").child("latest")
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 @Suppress("UNCHECKED_CAST")
@@ -22,10 +24,103 @@ class PetCloudRepository(uid: String) {
             }
             override fun onCancelled(error: DatabaseError) { onError(error.message) }
         }
-        query.addValueEventListener(listener)
+        userRoot.child("collar").child("latest").addValueEventListener(listener)
         return listener
     }
 
+    /** COL-6: reads the newest collar reading once (used by "Set home" in Settings). */
+    fun loadLatestCollar(onValue: (Map<String, Any>?) -> Unit, onError: (String) -> Unit) {
+        userRoot.child("collar").child("latest").addListenerForSingleValueEvent(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                @Suppress("UNCHECKED_CAST")
+                onValue(snapshot.value as? Map<String, Any>)
+            }
+            override fun onCancelled(error: DatabaseError) { onError(error.message) }
+        })
+    }
+
+    /**
+     * UI-6.1: Saves a reading in the history with its time, so the graphs can show it later.
+     * collar/latest only keeps the newest one. Same time = already saved, so it is skipped.
+     */
+    fun saveReadingToHistory(reading: CollarReading) {
+        if (reading.timeMillis <= 0 || reading.timeMillis == lastSavedTime) return
+        lastSavedTime = reading.timeMillis
+        userRoot.child("collar").child("readings").child(reading.timeMillis.toString())
+            .setValue(reading.toHistoryRow())
+    }
+    private var lastSavedTime = 0L
+
+    /**
+     * Bluetooth backup: a reading that came over Bluetooth goes to collar/latest,
+     * the same place the Wi-Fi collar writes, so every screen sees it the same way.
+     */
+    fun writeLatestFromBluetooth(reading: CollarReading) {
+        val row = reading.toHistoryRow().toMutableMap()
+        row["receivedAt"] = reading.timeMillis
+        row["source"] = "bluetooth_backup"
+        // updateChildren, not setValue: keeps fields the Wi-Fi collar wrote (like batteryPercent)
+        userRoot.child("collar").child("latest").updateChildren(row)
+    }
+
+    /** History for the graphs (UI-6.2): the last [count] saved readings, oldest first. */
+    fun listenToReadings(count: Int, onValue: (List<CollarReading>) -> Unit,
+                         onError: (String) -> Unit): ValueEventListener {
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                onValue(snapshot.children.mapNotNull { CollarReading.fromMap(it.value as? Map<*, *>) })
+            }
+            override fun onCancelled(error: DatabaseError) { onError(error.message) }
+        }
+        userRoot.child("collar").child("readings").limitToLast(count).addValueEventListener(listener)
+        return listener
+    }
+
+    /**
+     * UI-6.1: Loads the readings of one day (from [dayStart] to [dayEnd], in ms).
+     * Each reading is saved under its time in ms (13 digits), so the keys are in time order.
+     */
+    fun loadReadingsBetween(dayStart: Long, dayEnd: Long,
+                            onValue: (List<CollarReading>) -> Unit, onError: (String) -> Unit) {
+        userRoot.child("collar").child("readings").orderByKey()
+            .startAt(dayStart.toString()).endAt(dayEnd.toString())
+            .addListenerForSingleValueEvent(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    onValue(snapshot.children.mapNotNull { CollarReading.fromMap(it.value as? Map<*, *>) })
+                }
+                override fun onCancelled(error: DatabaseError) { onError(error.message) }
+            })
+    }
+
+    /** UI-6.1: Loads the meals of one day, using the "time" saved with each feeding. */
+    fun loadFeedingsBetween(dayStart: Long, dayEnd: Long,
+                            onValue: (List<Map<String, Any>>) -> Unit, onError: (String) -> Unit) {
+        userRoot.child("feeder").child("feedings").orderByChild("time")
+            .startAt(dayStart.toDouble()).endAt(dayEnd.toDouble())
+            .addListenerForSingleValueEvent(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    onValue(snapshot.children.mapNotNull {
+                        @Suppress("UNCHECKED_CAST")
+                        it.value as? Map<String, Any>
+                    })
+                }
+                override fun onCancelled(error: DatabaseError) { onError(error.message) }
+            })
+    }
+
+    fun removeReadingsListener(count: Int, listener: ValueEventListener) {
+        userRoot.child("collar").child("readings").limitToLast(count).removeEventListener(listener)
+    }
+
+    /** UI-8.2: copy of the settings, so the feeder can read the meal limit. */
+    fun saveSettings(settings: Map<String, Any>, onComplete: (String?) -> Unit) {
+        userRoot.child("settings").setValue(settings)
+            .addOnSuccessListener { onComplete(null) }
+            .addOnFailureListener { onComplete(it.localizedMessage ?: "Firebase write failed") }
+    }
+
+    fun collarReadingsRef(): DatabaseReference =
+        userRoot.child("collar").child("readings")
     fun collarLatestRef(): DatabaseReference =
         userRoot.child("collar").child("latest")
 
@@ -60,8 +155,13 @@ class PetCloudRepository(uid: String) {
     }
 
     fun listenToFeedings(onValue: (List<Map<String, Any>>) -> Unit,
+                         onError: (String) -> Unit): ValueEventListener =
+        listenToFeedings(10, onValue, onError)
+
+    /** The last [count] feedings, newest first. */
+    fun listenToFeedings(count: Int, onValue: (List<Map<String, Any>>) -> Unit,
                          onError: (String) -> Unit): ValueEventListener {
-        val query = userRoot.child("feeder").child("feedings").limitToLast(10)
+        val query = userRoot.child("feeder").child("feedings").limitToLast(count)
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 val rows = snapshot.children.mapNotNull {
@@ -181,7 +281,9 @@ class PetCloudRepository(uid: String) {
         userRoot.child("collar").child("latest").removeEventListener(listener)
     }
 
-    fun removeFeedingsListener(listener: ValueEventListener) {
-        userRoot.child("feeder").child("feedings").limitToLast(10).removeEventListener(listener)
+    fun removeFeedingsListener(listener: ValueEventListener) = removeFeedingsListener(10, listener)
+
+    fun removeFeedingsListener(count: Int, listener: ValueEventListener) {
+        userRoot.child("feeder").child("feedings").limitToLast(count).removeEventListener(listener)
     }
 }

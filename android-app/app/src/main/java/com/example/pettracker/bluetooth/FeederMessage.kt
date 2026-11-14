@@ -20,6 +20,9 @@ sealed class FeederReply {
     /** The feeder's clock was set. */
     object TimeSet : FeederReply()
 
+    /** UI-8.3: the feeder saved the daily meal limit from Settings. */
+    data class LimitSet(val mealsPerDay: Int) : FeederReply()
+
     /** The feeder gave the scheduled meal by itself. */
     data class ScheduledFed(val feedsToday: Int) : FeederReply()
 
@@ -37,9 +40,9 @@ sealed class FeederReply {
  * The messages between the app and the feeder, as written by
  * firmware/feeder/feeder_bluetooth/feeder_bluetooth.ino:
  *
- *     app sends:      FEED  |  FEED,2  |  SCHEDULE,07:30,2  |  TIME,21:45:00
+ *     app sends:      FEED  |  FEED,2  |  SCHEDULE,07:30,2  |  TIME,21:45:00  |  LIMIT,3
  *     feeder replies: OK FED 3  |  ERR COOLDOWN  |  ERR DAILY LIMIT  |  OK SCHEDULE 07:30 2
- *                     OK TIME  |  ERR BAD ...  |  ERR UNKNOWN <message>
+ *                     OK TIME  |  OK LIMIT 3  |  ERR BAD ...  |  ERR UNKNOWN <message>
  *     feeder sends by itself at the scheduled time:
  *                     SCHEDULED OK FED 2  |  SCHEDULED ERR DAILY LIMIT
  *
@@ -67,6 +70,10 @@ object FeederMessage {
     @JvmStatic
     fun timeCommand(hour: Int, minute: Int, second: Int): String =
         String.format(Locale.US, "TIME,%02d:%02d:%02d", hour, minute, second)
+
+    /** UI-8.3: the most meals per day (1 to 6), from Settings. For example LIMIT,3. */
+    @JvmStatic
+    fun limitCommand(mealsPerDay: Int): String = "LIMIT,$mealsPerDay"
 
     /** The TIME command with the phone's current time. */
     @JvmStatic
@@ -104,6 +111,10 @@ object FeederMessage {
             return FeederReply.ScheduleSaved(hour, minute, portion)
         }
         if (text == "OK TIME") return FeederReply.TimeSet
+        if (text.startsWith("OK LIMIT ")) {
+            val limit = text.removePrefix("OK LIMIT ").trim().toIntOrNull() ?: return null
+            return FeederReply.LimitSet(limit)
+        }
         if (text == "ERR COOLDOWN") return FeederReply.Cooldown
         if (text == "ERR DAILY LIMIT") return FeederReply.DailyLimit
         if (text.startsWith("ERR BAD")) return FeederReply.BadCommand
@@ -131,6 +142,7 @@ object FeederMessage {
                 Locale.US, "Schedule sent to the feeder (%02d:%02d)", reply.hour, reply.minute
             )
             FeederReply.TimeSet -> "Feeder clock set"
+            is FeederReply.LimitSet -> "Meal limit set to ${meals(reply.mealsPerDay)} a day"
             is FeederReply.ScheduledFed -> "Scheduled meal given (${meals(reply.feedsToday)} today)"
             FeederReply.ScheduledSkipped -> "Scheduled meal skipped, daily limit reached"
             FeederReply.BadCommand -> "The feeder refused the command"

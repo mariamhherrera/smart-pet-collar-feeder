@@ -5,7 +5,12 @@
     "owners": {
       "$ownerUid": {
         ".read": "auth != null && auth.uid === $ownerUid",
-        ".write": "auth != null && auth.uid === $ownerUid"
+        ".write": "auth != null && auth.uid === $ownerUid",
+        "feeder": {
+          "feedings": {
+            ".indexOn": ["time"]
+          }
+        }
       }
     }
   }

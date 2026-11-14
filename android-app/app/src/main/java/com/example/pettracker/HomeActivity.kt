@@ -1,18 +1,14 @@
 package com.example.pettracker
 
-import android.Manifest
 import android.app.Activity
 import android.bluetooth.BluetoothManager
 import android.content.Intent
-import android.content.pm.PackageManager
-import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.widget.Button
 import android.widget.RadioGroup
 import android.widget.TextView
-import android.widget.Toast
-import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
 import com.example.pettracker.bluetooth.BluetoothLink
 import com.example.pettracker.bluetooth.ClassicBluetoothConnector
 import com.example.pettracker.bluetooth.FeederMessage
@@ -25,23 +21,35 @@ import com.example.pettracker.feeder.ScheduleStorage
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.ValueEventListener
 import java.text.DateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.concurrent.Executors
 
-class HomeActivity : Activity(), BluetoothSppClient.Listener {
+class HomeActivity : Activity() {
 
     private lateinit var auth: FirebaseAuth
     private lateinit var database: DatabaseHelper
-    private var collarClient: BluetoothSppClient? = null
     private lateinit var textConnection: TextView
     private lateinit var textActivity: TextView
-    private lateinit var textHeartRate: TextView
-    private lateinit var textCollarBattery: TextView
-    private lateinit var searchButton: Button
-    private var permissionRequest = 410
     private var cloud: PetCloudRepository? = null
     private var collarListener: ValueEventListener? = null
     private var feedingListener: ValueEventListener? = null
+    private var feederStatusListener: ValueEventListener? = null
+
+    // Collar online check: the collar sends every 5 seconds, so 30 seconds of silence = offline
+    private var lastCollarReadingTime = 0L
+    private val clockHandler = Handler(Looper.getMainLooper())
+    private val refreshCollarStatus = object : Runnable {
+        override fun run() {
+            showCollarOnline()
+            showLocationAndAlerts()
+            clockHandler.postDelayed(this, 10_000L)
+        }
+    }
+
+    // UI-8.3: meals given today, from the feeding history in Firebase
+    private var mealsToday = 0
+    private var lastLocation: CollarReading? = null // newest reading that had a GPS position
 
     // Feeder (FD-2.1): one Bluetooth link to PetFeeder_ESP32
     private var feederLink: BluetoothLink? = null
@@ -52,6 +60,7 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
     private lateinit var buttonFeedNow: Button
     private lateinit var textFeedHistory: TextView
     private lateinit var feedPortionGroup: RadioGroup
+    private lateinit var textMealsToday: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -68,56 +77,22 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
 
         textConnection = findViewById(R.id.textConnection)
         textActivity = findViewById(R.id.textActivity)
-        searchButton = findViewById(R.id.buttonSearchCollar)
-        textHeartRate = findViewById(R.id.textHeartRate)
-        textCollarBattery = findViewById(R.id.textCollarBattery)
         textFeeder = findViewById(R.id.textFeeder)
         textFeedHistory = findViewById(R.id.textFeedHistory)
+        textMealsToday = findViewById(R.id.textMealsToday)
         buttonFeedNow = findViewById(R.id.buttonFeedNow)
         feedPortionGroup = findViewById(R.id.homeFeedPortionGroup)
         buttonFeedNow.setOnClickListener { sendFeedNowToCloud() }
 
-        val buttonProfile =
-            findViewById<Button>(R.id.buttonProfile)
+        // UI-3.3: bottom bar and profile icon. Pet profile opens from the icon, Log out is in
+        // Settings, and "Search for collar" (Bluetooth backup) is on the Collar page.
+        BottomNav.setUp(this, BottomNav.HOME)
 
-        val buttonLogout =
-            findViewById<Button>(R.id.buttonLogout)
-
-        buttonProfile.setOnClickListener {
-            startActivity(
-                Intent(this, ProfileActivity::class.java)
-            )
-        }
-        findViewById<Button>(R.id.buttonCollar).setOnClickListener {
-            startActivity(Intent(this, CollarActivity::class.java))
-        }
+        // Shortcut from the Next meal card to the feeding schedule
         findViewById<Button>(R.id.buttonSchedule).setOnClickListener {
             startActivity(Intent(this, ScheduleActivity::class.java))
         }
 
-        buttonLogout.setOnClickListener {
-            // Logout from Firebase
-            auth.signOut()
-            detachCloudListeners()
-            collarClient?.stop()
-            collarClient = null
-            stopFeeder()
-            Toast.makeText(
-                this,
-                "Logged out successfully",
-                Toast.LENGTH_SHORT
-            ).show()
-
-            returnToLogin()
-        }
-
-        searchButton.setOnClickListener {
-            if (hasBluetoothPermissions()) {
-                startBluetoothBackup()
-                startFeeder()
-            }
-            else requestBluetoothPermissions()
-        }
         showPetInformation()
     }
 
@@ -133,14 +108,23 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
 
         showPetInformation()
         attachCloudListeners()
-        if (hasBluetoothPermissions()) startFeeder()
+        clockHandler.post(refreshCollarStatus)
+        if (hasBluetoothPermissions()) startFeeder() // Bluetooth backup for Feed Now
+    }
+
+    /** True if Bluetooth may be used. The Collar page asks for it; Home only checks. */
+    private fun hasBluetoothPermissions(): Boolean {
+        return if (android.os.Build.VERSION.SDK_INT >= 31) {
+            checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        } else {
+            checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        }
     }
 
     override fun onPause() {
         super.onPause()
         detachCloudListeners()
-        collarClient?.stop()
-        collarClient = null
+        clockHandler.removeCallbacks(refreshCollarStatus)
         stopFeeder()
     }
 
@@ -149,50 +133,13 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
         feederSender.shutdown()
     }
 
-    private fun hasBluetoothPermissions(): Boolean {
-        return if (Build.VERSION.SDK_INT >= 31) {
-            ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED && ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
-        } else if (Build.VERSION.SDK_INT >= 23){
-            ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
-        } else true
-    }
-    
-    private fun requestBluetoothPermissions() {
-        val required = if (Build.VERSION.SDK_INT >= 31) {
-            arrayOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT)
-        } else if (Build.VERSION.SDK_INT >= 23) {
-            arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)
-        } else emptyArray()
-        if (required.isNotEmpty()) ActivityCompat.requestPermissions(this, required, permissionRequest)
-        else startBluetoothBackup()
-    }
-
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == permissionRequest) {
-            if (hasBluetoothPermissions()) {
-                startBluetoothBackup()
-                startFeeder()
-            }
-            else textConnection.text = "Firebase connected · Bluetooth backup permission denied"
-        }
-    }
-
-    private fun startBluetoothBackup() {
-        if (collarClient != null) return
-        collarClient = BluetoothSppClient(this, this).also { it.start() }
-    }
-
     // ---------- Feeder (FD-2.1) ----------
 
     /** Starts connecting to the feeder in the background. */
     private fun startFeeder() {
         if (feederLink != null || !hasBluetoothPermissions()) return
         val adapter = getSystemService(BluetoothManager::class.java)?.adapter
-        if (adapter == null || !adapter.isEnabled) {
-            showFeederStatus("Firebase feeder control ready · Bluetooth backup unavailable", false)
-            return
-        }
+        if (adapter == null || !adapter.isEnabled) return // Firebase still works without it
         val connector = ClassicBluetoothConnector(this, adapter, FeederMessage.DEVICE_NAME)
         feederConnectionNumber++
         // No silence timeout: the feeder only talks when it answers a command
@@ -208,22 +155,22 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
         feederConnectionNumber++ // from now on, messages from the old connection are ignored
     }
 
-    /** Called only when the Firebase Feed Now write fails: sends the Bluetooth backup. */
+    /** Called only when the Firebase Feed Now write fails: sends Feed Now by Bluetooth instead. */
     private fun feedNow(portion: Int) {
         val link = feederLink ?: run {
-            setFeedNowEnabled(cloud != null)
-            showFeederStatus("Bluetooth backup is not connected", false)
+            setFeedNowEnabled(true)
+            showFeederStatus("Could not reach the feeder (Firebase and Bluetooth backup are off)", false)
             return
         }
         setFeedNowEnabled(false)              // one tap = one command, no double taps
-        showFeederStatus("Firebase unavailable · sending Bluetooth backup…", true)
+        showFeederStatus("Firebase unavailable · sending by Bluetooth backup…", true)
 
         feederSender.execute {
             val sent = link.send(FeederMessage.feedCommand(portion))
             runOnUiThread {
                 if (!sent) showFeederStatus("Could not reach the feeder", false)
                 // Same 3 seconds as the feeder's cooldown, then the button works again
-                buttonFeedNow.postDelayed({ setFeedNowEnabled(cloud != null) }, FEED_LOCK_MS)
+                buttonFeedNow.postDelayed({ setFeedNowEnabled(true) }, FEED_LOCK_MS)
             }
         }
     }
@@ -235,14 +182,8 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
             runOnUiThread {
                 if (number != feederConnectionNumber) return@runOnUiThread
                 feederConnected = state == LinkState.CONNECTED
-                setFeedNowEnabled(cloud != null)
-                when (state) {
-                    LinkState.CONNECTED -> showFeederStatus("Feeder connected", true)
-                    LinkState.SEARCHING -> showFeederStatus("Searching for the feeder…", false)
-                    LinkState.CONNECTING -> showFeederStatus("Connecting to the feeder…", false)
-                    LinkState.RECONNECTING -> showFeederStatus("Feeder lost. Reconnecting…", false)
-                    LinkState.STOPPED -> showFeederStatus("Feeder disconnected", false)
-                }
+                // Firebase sends the schedule now; Bluetooth only gives the feeder its clock and meal limit
+                if (feederConnected) sendTimeAndLimit()
             }
         }
 
@@ -252,7 +193,8 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
                 // Turn the feeder's reply (like "OK FED 1") into a sentence for the owner
                 val reply = FeederMessage.parse(line) ?: return@runOnUiThread // not a reply, ignore it
                 // Answers to the automatic TIME and SCHEDULE: keep showing "Feeder connected"
-                if (reply is FeederReply.TimeSet || reply is FeederReply.ScheduleSaved) return@runOnUiThread
+                if (reply is FeederReply.TimeSet || reply is FeederReply.ScheduleSaved ||
+                    reply is FeederReply.LimitSet) return@runOnUiThread
                 val good = reply is FeederReply.Fed || reply is FeederReply.ScheduledFed
                 showFeederStatus(FeederMessage.screenText(reply), good)
             }
@@ -260,19 +202,15 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
     }
 
     /**
-     * FD-1.3: Gives the feeder the current time and the saved schedule, every time it connects.
-     * The feeder forgets the time when it restarts, and needs it to feed on schedule.
+     * Over the Bluetooth backup: gives the feeder the current time and the meal limit (UI-8.3).
+     * The feeder forgets the time when it restarts, and needs the limit for scheduled meals.
      */
-    private fun sendTimeAndSchedule() {
+    private fun sendTimeAndLimit() {
         val link = feederLink ?: return
-        val storage = ScheduleStorage(this)
-        val schedule =
-            if (storage.hasSchedule())
-                FeederMessage.scheduleCommand(storage.getHour(), storage.getMinute(), storage.getPortion())
-            else null
+        val limit = FeederMessage.limitCommand(SettingsStorage(this).mealLimit)
         feederSender.execute {
             link.send(FeederMessage.timeCommandNow())
-            if (schedule != null) link.send(schedule)
+            link.send(limit)
         }
     }
 
@@ -289,6 +227,7 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
 
     private companion object {
         const val FEED_LOCK_MS = 3_000L
+        const val FEEDINGS_TO_LOAD = 20
     }
 
     private fun showPetInformation() {
@@ -299,85 +238,128 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
             "Welcome, ${user.email ?: "User"}"
 
         findViewById<TextView>(R.id.textPetName).text =
-            profile?.name ?: "No pet profile yet"
+            profile?.name?.let { "Hi, $it!" } ?: "Add your pet"
 
-        findViewById<TextView>(R.id.textConnection).text =
-            "Disconnected"
-
-        findViewById<TextView>(R.id.textActivity).text =
-            "No data yet"
+        showNextMeal()
+        showMealsToday()
     }
 
-    override fun onStatus(message: String, connected: Boolean) {
-         runOnUiThread {
-            textConnection.text = if (connected) "Bluetooth backup connected" else "Firebase primary · $message"
-            textConnection.setTextColor(if (connected) 0xFF15803D.toInt() else 0xFF64748B.toInt())
+    /** Next meal card: the time and portion saved on the Feeder page. */
+    private fun showNextMeal() {
+        val schedule = ScheduleStorage(this)
+        val textNextMeal = findViewById<TextView>(R.id.textNextMeal)
+        val textNextPortion = findViewById<TextView>(R.id.textNextPortion)
+
+        if (!schedule.hasSchedule()) {
+            textNextMeal.text = "Not set"
+            textNextPortion.text = "Set a schedule"
+            return
         }
+
+        // Write the time the way the phone does (6:00 PM or 18:00)
+        val time = Calendar.getInstance()
+        time.set(Calendar.HOUR_OF_DAY, schedule.hour)
+        time.set(Calendar.MINUTE, schedule.minute)
+        textNextMeal.text = android.text.format.DateFormat.getTimeFormat(this).format(time.time)
+        textNextPortion.text = portionName(schedule.portion) + " portion"
     }
 
-    override fun onLineReceived(line: String) {
-        val motion = CollarProtocol.parseMotion(line) ?: return
-        val uid = auth.currentUser?.uid ?: return
-        val record = mapOf(
-            "time" to System.currentTimeMillis(),
-            "receivedAt" to System.currentTimeMillis(),
-            "deviceTimeSeconds" to motion.timeSeconds,
-            "accelerationG" to mapOf("x" to motion.ax, "y" to motion.ay, "z" to motion.az),
-            "gyroscopeDegreesPerSecond" to mapOf("x" to motion.gx, "y" to motion.gy, "z" to motion.gz),
-            "heartRateBpm" to motion.heartRateBpm,
-            "source" to "bluetooth_backup"
-        )
-        PetCloudRepository(uid).collarLatestRef().updateChildren(record) // UPDATED: preserve ESP32 battery fields during Bluetooth fallback updates.
+    /** UI-8.3: "1 of 3 meals today", using the limit from Settings. */
+    private fun showMealsToday() {
+        val limit = SettingsStorage(this).mealLimit
+        // UI-8.3: a warning once the limit is reached (the feeder skips scheduled meals too)
+        val reached = !MealLimit.canFeed(mealsToday, limit)
+        textMealsToday.text = if (reached) "Limit reached ($mealsToday of $limit)" else "$mealsToday of $limit meals today"
+        textMealsToday.setTextColor(if (reached) 0xFFDC2626.toInt() else getColor(R.color.text_secondary))
+    }
+
+    /** Collar tile: online if a reading came in the last 30 seconds. */
+    private fun showCollarOnline() {
+        if (lastCollarReadingTime == 0L) {
+            textConnection.text = "Waiting for the collar"
+            textConnection.setTextColor(getColor(R.color.text_secondary))
+            return
+        }
+        val online = System.currentTimeMillis() - lastCollarReadingTime < 30_000L
+        textConnection.text = if (online) "Online" else "Offline since " + clock(lastCollarReadingTime)
+        textConnection.setTextColor(if (online) 0xFF15803D.toInt() else 0xFFDC2626.toInt())
+    }
+
+    /** 1, 2, 3 -> Small, Medium, Large */
+    private fun portionName(portion: Any?): String = when (portion?.toString()) {
+        null -> "—"
+        "1" -> "Small"
+        "2" -> "Medium"
+        "3" -> "Large"
+        else -> portion.toString()
+    }
+
+    /** "4:05 PM" for today, or "Nov 10, 2026, 4:05 PM" for another day. */
+    private fun clock(time: Long): String {
+        val timeText = android.text.format.DateFormat.getTimeFormat(this).format(Date(time))
+        return if (MealLimit.startOfDay(time) == MealLimit.startOfDay(System.currentTimeMillis())) timeText
+        else DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date(time)) + ", " + timeText
     }
 
     private fun attachCloudListeners() {
         if (collarListener != null || feedingListener != null) return
         val uid = auth.currentUser?.uid ?: return
-        cloud = PetCloudRepository(uid)
-        setFeedNowEnabled(true)
-        textConnection.text = "Connected through Firebase"
-        textConnection.setTextColor(0xFF15803D.toInt())
+        val cloud = PetCloudRepository(uid)
+        this.cloud = cloud
 
-        collarListener = cloud?.listenToLatestCollar(
+        // Collar: newest reading (live motion, location), also saved in the history (UI-6.1)
+        collarListener = cloud.listenToLatestCollar(
             onValue = { row ->
                 runOnUiThread {
-                    if (row == null) {
-                        textActivity.text = "Waiting for collar readings in Firebase…"
-                    } else {
-                        val acceleration = row["accelerationG"] as? Map<*, *>
-                        val gyroscope = row["gyroscopeDegreesPerSecond"] as? Map<*, *>
-                        val ax = acceleration?.get("x")?.toString() ?: row["ax"]?.toString() ?: row["accelX"]?.toString() ?: "—"
-                        val ay = acceleration?.get("y")?.toString() ?: row["ay"]?.toString() ?: row["accelY"]?.toString() ?: "—"
-                        val az = acceleration?.get("z")?.toString() ?: row["az"]?.toString() ?: row["accelZ"]?.toString() ?: "—"
-                        val gx = gyroscope?.get("x")?.toString() ?: row["gx"]?.toString() ?: "—"
-                        val gy = gyroscope?.get("y")?.toString() ?: row["gy"]?.toString() ?: "—"
-                        val gz = gyroscope?.get("z")?.toString() ?: row["gz"]?.toString() ?: "—"
-                        val heartRate = row["heartRateBpm"]?.toString()
-                            ?: row["heartRate"]?.toString() ?: "—"
-                        textHeartRate.text = if (heartRate == "—") "Heart rate: waiting for collar data" else "Heart rate: $heartRate BPM"
-                        val batteryPercent = row["batteryPercent"]?.toString()
-                        textCollarBattery.text = batteryPercent?.let { "Collar battery: $it%" } ?: "Collar battery: unavailable"
-                        val timeValue = (row["receivedAt"] as? Number)?.toLong()
-                            ?: (row["time"] as? Number)?.toLong()
-                            ?: (row["timestamp"] as? Number)?.toLong()
-                        val time = timeValue?.takeIf { it > 0L }?.let {
-                            DateFormat.getDateTimeInstance().format(Date(it))
-                        } ?: row["deviceTimeSeconds"]?.toString() ?: "—"
-                        textActivity.text = "LIVE COLLAR DATA\nTime: $time\nAcceleration (g): X $ax | Y $ay | Z $az\nGyroscope (°/s): X $gx | Y $gy | Z $gz"
-                    }
+                    val reading = CollarReading.fromMap(row) ?: return@runOnUiThread
+                    lastCollarReadingTime = if (reading.timeMillis > 0) reading.timeMillis else System.currentTimeMillis()
+                    showCollarOnline()
+                    cloud.saveReadingToHistory(reading)
+
+                    textActivity.text = "X %.2f · Y %.2f · Z %.2f g".format(reading.ax, reading.ay, reading.az)
+                    findViewById<TextView>(R.id.textActivityTime).text = "Updated " + clock(lastCollarReadingTime)
+                    if (reading.hasLocation()) lastLocation = reading
+                    showLocationAndAlerts()
                 }
             },
-            onError = { message -> runOnUiThread { textConnection.text = "Firebase collar error: $message" } }
+            onError = { message -> runOnUiThread { textConnection.text = "Firebase error: $message" } }
         )
 
-        feedingListener = cloud?.listenToFeedings(
+        // Feeder: online or offline, once the feeder writes its status to Firebase
+        feederStatusListener = cloud.listenToFeederStatus(
+            onValue = { status ->
+                runOnUiThread {
+                    val text = findViewById<TextView>(R.id.textFeederConnection)
+                    val connected = status?.get("connected") == true
+                    text.text = when {
+                        status == null -> "Waiting for the feeder"
+                        connected -> "Online"
+                        else -> "Offline"
+                    }
+                    text.setTextColor(
+                        when {
+                            status == null -> getColor(R.color.text_secondary)
+                            connected -> 0xFF15803D.toInt()
+                            else -> 0xFFDC2626.toInt()
+                        }
+                    )
+                }
+            },
+            onError = { }
+        )
+
+        // Feedings: the 3 newest on Home, and today's count for the meal limit (UI-8.3)
+        feedingListener = cloud.listenToFeedings(FEEDINGS_TO_LOAD,
             onValue = { rows ->
                 runOnUiThread {
-                    textFeedHistory.text = if (rows.isEmpty()) "No meals recorded yet" else rows.joinToString("\n\n") { row ->
-                        val timeValue = (row["time"] as? Number)?.toLong()
-                            ?: (row["time"] as? String)?.toLongOrNull() ?: 0L
-                        val time = if (timeValue > 0) DateFormat.getDateTimeInstance().format(Date(timeValue)) else "Time pending"
-                        "Time: $time\nPortion: ${row["portion"] ?: "—"}\nStatus: ${row["status"] ?: "unknown"}\nSource: ${row["source"] ?: "device"}"
+                    mealsToday = MealLimit.mealsToday(rows)
+                    showMealsToday()
+                    val shown = rows.filter { it["status"]?.toString() != "scheduled" }.take(3)
+                    textFeedHistory.text = if (shown.isEmpty()) "No meals recorded yet" else shown.joinToString("\n") { row ->
+                        val time = (row["time"] as? Number)?.toLong() ?: 0L
+                        val whenText = if (time > 0) clock(time) else "Time pending"
+                        val status = row["status"]?.toString()?.replaceFirstChar { it.uppercase() } ?: "Unknown"
+                        "$whenText  ·  ${portionName(row["portion"])}  ·  $status"
                     }
                 }
             },
@@ -385,11 +367,57 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
         )
     }
 
+    /**
+     * Location card (COL-6) and the alert box at the top of Home.
+     * Alerts: the pet left the safe zone (if turned on in Settings), or the collar went offline.
+     */
+    private fun showLocationAndAlerts() {
+        val settings = SettingsStorage(this)
+        val place = findViewById<TextView>(R.id.textHomeLocation)
+        val note = findViewById<TextView>(R.id.textHomeLocationNote)
+        val spot = lastLocation
+        var outside = false
+
+        when (SafeZone.status(spot, settings.homeLatitude, settings.homeLongitude, settings.safeRadius)) {
+            SafeZone.Status.NO_GPS -> {
+                place.text = "No GPS yet"
+                place.setTextColor(getColor(R.color.text_primary))
+                note.text = "GPS works outside or near a window"
+            }
+            SafeZone.Status.NO_HOME -> {
+                place.text = "Found"
+                place.setTextColor(getColor(R.color.text_primary))
+                note.text = "Set home in Settings"
+            }
+            else -> {
+                val meters = SafeZone.distanceMeters(settings.homeLatitude!!, settings.homeLongitude!!,
+                    spot!!.latitude!!, spot.longitude!!)
+                outside = meters > settings.safeRadius
+                place.text = if (outside) "Away" else "At home"
+                place.setTextColor(if (outside) 0xFFDC2626.toInt() else 0xFF15803D.toInt())
+                note.text = SafeZone.formatDistance(meters) + " from home"
+            }
+        }
+
+        // Alert box: only shown when something needs the owner's attention
+        val alerts = mutableListOf<String>()
+        val petName = findViewById<TextView>(R.id.textPetName).text.toString()
+            .removePrefix("Hi, ").removeSuffix("!").takeIf { it != "Add your pet" } ?: "Your pet"
+        if (outside && settings.safeZoneAlerts) alerts.add("$petName left the safe zone. Check the Collar page.")
+        if (lastCollarReadingTime > 0 && System.currentTimeMillis() - lastCollarReadingTime > 30_000L)
+            alerts.add("The collar is offline since " + clock(lastCollarReadingTime) + ".")
+        val alertBox = findViewById<TextView>(R.id.textAlert)
+        alertBox.text = alerts.joinToString("\n")
+        alertBox.visibility = if (alerts.isEmpty()) android.view.View.GONE else android.view.View.VISIBLE
+    }
+
     private fun detachCloudListeners() {
         collarListener?.let { cloud?.removeCollarListener(it) }
-        feedingListener?.let { cloud?.removeFeedingsListener(it) }
+        feedingListener?.let { cloud?.removeFeedingsListener(FEEDINGS_TO_LOAD, it) }
+        feederStatusListener?.let { cloud?.removeFeederStatusListener(it) }
         collarListener = null
         feedingListener = null
+        feederStatusListener = null
         cloud = null
     }
 
@@ -399,27 +427,35 @@ class HomeActivity : Activity(), BluetoothSppClient.Listener {
             R.id.homeFeedLarge -> 3
             else -> 2
         }
-        buttonFeedNow.isEnabled = false
-        textFeeder.text = "Sending Feed Now command to Firebase…"
-        cloud?.createFeedNow(portion) { commandId, error ->
+        // UI-8.3: stop at the daily meal limit from Settings
+        val limit = SettingsStorage(this).mealLimit
+        if (!MealLimit.canFeed(mealsToday, limit)) {
+            textFeeder.text = "Daily limit reached ($mealsToday of $limit meals). You can change it in Settings."
+            textFeeder.setTextColor(0xFFDC2626.toInt())
+            return
+        }
+        textFeeder.setTextColor(getColor(R.color.text_secondary))
+
+        setFeedNowEnabled(false)
+        textFeeder.text = "Sending Feed Now…"
+        cloud?.createFeedNow(portion) { _, error ->
             runOnUiThread {
                 if (error != null) {
                     cloud?.addAlert("command_error", error)
-                    if (feederConnected) {
-                        feedNow(portion)
-                    } else {
+                    if (feederConnected) feedNow(portion) else {
                         setFeedNowEnabled(true)
-                        textFeeder.text = "Could not save Feed Now command: $error. Bluetooth backup is unavailable."
+                        showFeederStatus("Could not send Feed Now: $error. Bluetooth backup is off.", false)
                     }
                 } else {
-                    setFeedNowEnabled(true)
-                    textFeeder.text = "Feed Now queued in Firebase (command ${commandId?.takeLast(6)}). Waiting for feeder confirmation."
+                    // Same 3 seconds as the feeder's cooldown, so one tap = one meal
+                    buttonFeedNow.postDelayed({ setFeedNowEnabled(true) }, FEED_LOCK_MS)
+                    textFeeder.text = "Feed Now sent. Waiting for the feeder to confirm."
                 }
             }
         } ?: run {
             if (feederConnected) feedNow(portion) else {
                 setFeedNowEnabled(true)
-                textFeeder.text = "Firebase is not connected and Bluetooth backup is unavailable."
+                showFeederStatus("Firebase is not connected and Bluetooth backup is off.", false)
             }
         }
     }

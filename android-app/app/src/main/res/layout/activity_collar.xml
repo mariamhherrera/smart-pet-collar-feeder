@@ -1,155 +1,381 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- UI-5.2: Collar page. Same teal header and white cards as the other screens. -->
-<ScrollView
+<!-- UI-5 Collar page: connection, battery, location and safe zone (COL-6), sleep (COL-5), activity (COL-2). -->
+<LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:fillViewport="true"
+    android:orientation="vertical"
     android:fitsSystemWindows="true"
     android:background="@color/background">
 
-    <LinearLayout
+    <include layout="@layout/top_bar" />
+
+    <ScrollView
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical">
-
-        <!-- Header -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:background="@color/primary"
-            android:paddingStart="24dp"
-            android:paddingEnd="24dp"
-            android:paddingTop="28dp"
-            android:paddingBottom="24dp">
-
-            <ImageButton
-                android:id="@+id/backButton"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:src="@drawable/ic_arrow_back"
-                android:background="?android:attr/selectableItemBackgroundBorderless"
-                android:contentDescription="Back"
-                android:layout_marginBottom="8dp"/>
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Collar"
-                android:textSize="26sp"
-                android:textStyle="bold"
-                android:textColor="#FFFFFF"/>
-
-            <TextView
-                android:id="@+id/textCollarPetName"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Live heart rate and activity"
-                android:textSize="15sp"
-                android:textColor="@color/primary_light"
-                android:layout_marginTop="4dp"/>
-        </LinearLayout>
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="20dp">
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp"
+            android:paddingTop="20dp"
+            android:paddingBottom="32dp">
 
-            <!-- Connected / disconnected -->
-            <TextView
-                android:id="@+id/textCollarStatus"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:minHeight="56dp"
-                android:text="Waiting for the collar…"
-                android:textSize="16sp"
-                android:textStyle="bold"
-                android:textColor="@color/text_secondary"
-                android:background="@drawable/bg_card"
-                android:gravity="center_vertical"
-                android:padding="16dp"
-                android:layout_marginBottom="20dp"/>
-
-            <!-- Heart rate -->
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Heart rate"
-                android:textSize="18sp"
-                android:textStyle="bold"
-                android:textColor="@color/text_primary"
-                android:layout_marginBottom="8dp"/>
-
+            <!-- ===== Collar connection ===== -->
             <LinearLayout
+                style="@style/Pt.Card"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:background="@drawable/bg_card"
-                android:padding="16dp"
-                android:layout_marginBottom="20dp">
+                android:layout_height="wrap_content">
 
-                <TextView
-                    android:id="@+id/textBpm"
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="—"
-                    android:textSize="48sp"
-                    android:textStyle="bold"
-                    android:textColor="@color/text_primary"/>
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
 
-                <TextView
-                    android:id="@+id/textBpmVerdict"
+                    <ImageView
+                        style="@style/Pt.Icon"
+                        android:layout_width="56dp"
+                        android:layout_height="56dp"
+                        android:padding="13dp"
+                        android:background="@drawable/bg_icon_teal"
+                        android:src="@drawable/ic_pets"
+                        android:tint="@color/primary"
+                        android:contentDescription="Collar" />
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical"
+                        android:layout_marginStart="14dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Smart collar"
+                            style="@style/Pt.Title"
+                            android:textSize="20sp" />
+
+                        <TextView
+                            android:id="@+id/textCollarStatus"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Waiting for the collar"
+                            android:textSize="13sp"
+                            android:textColor="@color/text_secondary"
+                            android:fontFamily="@font/plus_jakarta_sans_semibold"
+                            android:layout_marginTop="2dp" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- Battery, once the collar sends it -->
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Waiting for heart rate"
-                    android:textSize="16sp"
-                    android:textColor="@color/text_secondary"/>
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:background="@drawable/bg_tile"
+                    android:padding="12dp"
+                    android:layout_marginTop="16dp">
 
-                <TextView
-                    android:id="@+id/textNormalRange"
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Battery"
+                        style="@style/Pt.Title"
+                        android:textSize="14sp" />
+
+                    <TextView
+                        android:id="@+id/textCollarBattery"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="--%"
+                        style="@style/Pt.Body"
+                        android:textSize="14sp" />
+                </LinearLayout>
+
+                <Button
+                    android:id="@+id/buttonSearchCollar"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Normal range: unknown"
+                    android:layout_height="44dp"
+                    android:minHeight="44dp"
+                    android:text="Connect by Bluetooth (backup)"
                     android:textSize="14sp"
-                    android:textColor="@color/text_secondary"
-                    android:layout_marginTop="8dp"/>
+                    android:textColor="@color/primary"
+                    android:background="@drawable/bg_secondary_button"
+                    android:stateListAnimator="@null"
+                    android:layout_marginTop="16dp" />
             </LinearLayout>
 
-            <!-- Activity -->
-            <TextView
+            <!-- ===== Location and safe zone (COL-6, GPS) ===== -->
+            <LinearLayout
+                style="@style/Pt.Card"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Activity"
-                android:textSize="18sp"
-                android:textStyle="bold"
-                android:textColor="@color/text_primary"
-                android:layout_marginBottom="8dp"/>
+                android:layout_marginTop="16dp">
 
-            <TextView
-                android:id="@+id/textCollarActivity"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:minHeight="56dp"
-                android:text="—"
-                android:textSize="20sp"
-                android:textStyle="bold"
-                android:textColor="@color/text_primary"
-                android:background="@drawable/bg_card"
-                android:gravity="center_vertical"
-                android:padding="16dp"
-                android:layout_marginBottom="20dp"/>
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
 
-            <!-- When the last reading arrived -->
-            <TextView
-                android:id="@+id/textLastUpdate"
+                    <ImageView
+                        style="@style/Pt.Icon"
+                        android:background="@drawable/bg_icon_teal"
+                        android:src="@drawable/ic_location_on"
+                        android:tint="@color/primary"
+                        android:contentDescription="Location" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Location"
+                        style="@style/Pt.Label"
+                        android:layout_marginStart="10dp" />
+                </LinearLayout>
+
+                <!-- "At home" (green), "Outside the safe zone" (red), or "No GPS signal" -->
+                <TextView
+                    android:id="@+id/textLocationStatus"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Waiting for GPS"
+                    style="@style/Pt.Metric"
+                    android:textSize="24sp"
+                    android:layout_marginTop="12dp" />
+
+                <TextView
+                    android:id="@+id/textLocationDetail"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="GPS works outside or near a window"
+                    style="@style/Pt.Body"
+                    android:textSize="12sp"
+                    android:layout_marginTop="2dp" />
+
+                <Button
+                    android:id="@+id/buttonOpenMaps"
+                    android:layout_width="match_parent"
+                    android:layout_height="44dp"
+                    android:minHeight="44dp"
+                    android:text="Open in Maps"
+                    android:textSize="14sp"
+                    android:textColor="@color/primary"
+                    android:background="@drawable/bg_secondary_button"
+                    android:stateListAnimator="@null"
+                    android:enabled="false"
+                    android:alpha="0.5"
+                    android:layout_marginTop="14dp" />
+            </LinearLayout>
+
+            <!-- ===== Sleep last night (COL-5, from the collar's 1-minute summaries) ===== -->
+            <LinearLayout
+                style="@style/Pt.Card"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Last reading: none yet"
-                android:textSize="14sp"
-                android:textColor="@color/text_secondary"/>
+                android:layout_marginTop="16dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <ImageView
+                        style="@style/Pt.Icon"
+                        android:background="@drawable/bg_icon_teal"
+                        android:src="@drawable/ic_bedtime"
+                        android:tint="@color/primary"
+                        android:contentDescription="Sleep" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Sleep last night"
+                        style="@style/Pt.Label"
+                        android:layout_marginStart="10dp" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/textSleepHours"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="--"
+                    style="@style/Pt.Metric"
+                    android:textSize="24sp"
+                    android:layout_marginTop="12dp" />
+
+                <TextView
+                    android:id="@+id/textSleepDetail"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Waiting for sleep data from the collar"
+                    style="@style/Pt.Body"
+                    android:textSize="12sp"
+                    android:layout_marginTop="2dp" />
+            </LinearLayout>
+
+            <!-- ===== Activity right now (COL-2.2 fills in the label) ===== -->
+            <LinearLayout
+                style="@style/Pt.Card"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <ImageView
+                        style="@style/Pt.Icon"
+                        android:background="@drawable/bg_icon_teal"
+                        android:src="@drawable/ic_directions_run"
+                        android:tint="@color/primary"
+                        android:contentDescription="Activity" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Live motion"
+                        style="@style/Pt.Label"
+                        android:layout_marginStart="10dp" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/textCollarActivity"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="No data yet"
+                    style="@style/Pt.Metric"
+                    android:textSize="26sp"
+                    android:layout_marginTop="12dp" />
+
+                <!-- Raw numbers from the motion sensor, handy for testing -->
+                <TextView
+                    android:id="@+id/textCollarMotion"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text=""
+                    style="@style/Pt.Body"
+                    android:textSize="12sp"
+                    android:layout_marginTop="4dp" />
+            </LinearLayout>
+
+            <!-- ===== Today: minutes per activity (COL-2.3) ===== -->
+            <LinearLayout
+                style="@style/Pt.Card"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Today"
+                    style="@style/Pt.Label" />
+
+                <!-- Resting -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginTop="14dp">
+
+                    <View
+                        android:layout_width="10dp"
+                        android:layout_height="10dp"
+                        android:background="@drawable/dot_resting" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Resting"
+                        style="@style/Pt.Title"
+                        android:layout_marginStart="10dp" />
+
+                    <TextView
+                        android:id="@+id/textMinutesResting"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="-- min"
+                        style="@style/Pt.Body"
+                        android:textSize="14sp" />
+                </LinearLayout>
+
+                <!-- Walking -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginTop="12dp">
+
+                    <View
+                        android:layout_width="10dp"
+                        android:layout_height="10dp"
+                        android:background="@drawable/dot_walking" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Walking"
+                        style="@style/Pt.Title"
+                        android:layout_marginStart="10dp" />
+
+                    <TextView
+                        android:id="@+id/textMinutesWalking"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="-- min"
+                        style="@style/Pt.Body"
+                        android:textSize="14sp" />
+                </LinearLayout>
+
+                <!-- Running -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginTop="12dp">
+
+                    <View
+                        android:layout_width="10dp"
+                        android:layout_height="10dp"
+                        android:background="@drawable/dot_running" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Running"
+                        style="@style/Pt.Title"
+                        android:layout_marginStart="10dp" />
+
+                    <TextView
+                        android:id="@+id/textMinutesRunning"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="-- min"
+                        style="@style/Pt.Body"
+                        android:textSize="14sp" />
+                </LinearLayout>
+            </LinearLayout>
 
         </LinearLayout>
-    </LinearLayout>
-</ScrollView>
+    </ScrollView>
+
+    <include layout="@layout/bottom_nav" />
+</LinearLayout>

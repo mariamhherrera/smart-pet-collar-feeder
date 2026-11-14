@@ -11,6 +11,9 @@
         <item name="android:windowBackground">@color/background</item>
         <item name="android:statusBarColor">@color/primary_dark</item>
 
+        <!-- Font from our Stitch design, on every screen -->
+        <item name="android:fontFamily">@font/plus_jakarta_sans</item>
+
         <!-- Default style for every button -->
         <item name="android:buttonStyle">@style/Widget.Pettracker.Button</item>
     </style>
@@ -21,5 +24,118 @@
         <item name="android:textColor">#FFFFFF</item>
         <item name="android:textAllCaps">false</item>
         <item name="android:minHeight">52dp</item>
+        <item name="android:fontFamily">@font/plus_jakarta_sans_bold</item>
+    </style>
+
+    <!-- ===== Home screen styles ===== -->
+    <style name="Pt" />
+
+    <!-- White rounded card -->
+    <style name="Pt.Card">
+        <item name="android:background">@drawable/bg_card</item>
+        <item name="android:padding">16dp</item>
+        <item name="android:orientation">vertical</item>
+    </style>
+
+    <!-- Small grey label in capitals: DEVICES, NEXT MEAL -->
+    <style name="Pt.Label">
+        <item name="android:textSize">11sp</item>
+        <item name="android:textColor">@color/text_secondary</item>
+        <item name="android:textAllCaps">true</item>
+        <item name="android:letterSpacing">0.08</item>
+        <item name="android:fontFamily">@font/plus_jakarta_sans_bold</item>
+    </style>
+
+    <!-- Card title: Collar, Feeder -->
+    <style name="Pt.Title">
+        <item name="android:textSize">15sp</item>
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:fontFamily">@font/plus_jakarta_sans_bold</item>
+    </style>
+
+    <!-- Big number: 88, 6:00 PM -->
+    <style name="Pt.Metric">
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:letterSpacing">-0.02</item>
+        <item name="android:fontFamily">@font/plus_jakarta_sans_extrabold</item>
+    </style>
+
+    <!-- Normal grey text under a title -->
+    <style name="Pt.Body">
+        <item name="android:textSize">13sp</item>
+        <item name="android:textColor">@color/text_secondary</item>
+        <item name="android:fontFamily">@font/plus_jakarta_sans_medium</item>
+    </style>
+
+    <!-- Round icon: 40dp circle, icon in the middle -->
+    <style name="Pt.Icon">
+        <item name="android:layout_width">40dp</item>
+        <item name="android:layout_height">40dp</item>
+        <item name="android:padding">9dp</item>
+        <item name="android:scaleType">fitCenter</item>
+    </style>
+
+    <!-- A row in a list: icon, text, arrow. Flat, no shadow -->
+    <style name="Pt.RowButton" parent="android:Widget.Material.Button.Borderless">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">56dp</item>
+        <item name="android:background">@drawable/bg_row</item>
+        <item name="android:gravity">start|center_vertical</item>
+        <item name="android:paddingStart">12dp</item>
+        <item name="android:paddingEnd">12dp</item>
+        <item name="android:drawablePadding">14dp</item>
+        <item name="android:textSize">15sp</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:fontFamily">@font/plus_jakarta_sans_semibold</item>
+        <item name="android:stateListAnimator">@null</item>
+    </style>
+
+    <!-- Small / Medium / Large as rounded chips instead of round radio dots -->
+    <style name="Pt.Chip">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">44dp</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:layout_marginStart">4dp</item>
+        <item name="android:layout_marginEnd">4dp</item>
+        <item name="android:button">@null</item>
+        <item name="android:background">@drawable/bg_chip</item>
+        <item name="android:gravity">center</item>
+        <item name="android:textSize">15sp</item>
+        <item name="android:textColor">@color/chip_text</item>
+        <item name="android:fontFamily">@font/plus_jakarta_sans_bold</item>
+    </style>
+
+    <!-- ===== Bottom bar ===== -->
+
+    <!-- One tab: icon above text, takes a quarter of the width -->
+    <style name="Pt.NavItem">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">match_parent</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:orientation">vertical</item>
+        <item name="android:gravity">center</item>
+        <item name="android:clickable">true</item>
+        <item name="android:focusable">true</item>
+        <item name="android:background">?android:attr/selectableItemBackgroundBorderless</item>
+    </style>
+
+    <!-- Tab icon. The selected tab gets a light teal pill behind it -->
+    <style name="Pt.NavIcon">
+        <item name="android:layout_width">56dp</item>
+        <item name="android:layout_height">30dp</item>
+        <item name="android:paddingTop">4dp</item>
+        <item name="android:paddingBottom">4dp</item>
+        <item name="android:scaleType">fitCenter</item>
+        <item name="android:tint">@color/text_secondary</item>
+    </style>
+
+    <style name="Pt.NavText">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">2dp</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:textColor">@color/text_secondary</item>
+        <item name="android:fontFamily">@font/plus_jakarta_sans_semibold</item>
     </style>
 </resources>

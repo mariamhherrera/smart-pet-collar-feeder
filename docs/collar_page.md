@@ -1,7 +1,7 @@
 # Collar page (UI-5)
 
 The Collar page shows the pet's live heart rate and activity from Firebase (`owners/{uid}/collar/latest`).
-Open it from the home screen with the **Collar vitals** button.
+Open it from the **Collar** tab in the bottom bar.
 
 ## Normal heart rate ranges (UI-5.1)
 

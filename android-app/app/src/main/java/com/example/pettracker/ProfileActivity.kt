@@ -33,7 +33,8 @@ class ProfileActivity : Activity() {
         }
 
         setContentView(R.layout.activity_profile)
-        findViewById<android.view.View>(R.id.backButton).setOnClickListener { finish() }
+        // Opened from the profile icon: back arrow in the top bar (UI-7.1)
+        BottomNav.setUpDetail(this, "Pet profile")
 
         editName = findViewById(R.id.editPetName)
         spinnerSpecies = findViewById(R.id.spinnerSpecies)

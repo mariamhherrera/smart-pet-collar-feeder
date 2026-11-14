@@ -9,6 +9,9 @@ import android.widget.Toast;
 import android.app.Activity;
 import android.app.AlertDialog;
 
+import com.example.pettracker.BottomNav;
+import com.example.pettracker.MealLimit;
+import com.example.pettracker.SettingsStorage;
 import com.example.pettracker.R;
 import com.example.pettracker.PetCloudRepository;
 import com.google.firebase.auth.FirebaseAuth;
@@ -29,6 +32,9 @@ public class ScheduleActivity extends Activity {
     private ScheduleStorage storage;
     private RadioGroup feedNowPortionGroup;
     private FeederConnection feeder;   // FD-1.3: Bluetooth connection to the feeder
+    private TextView feederStatusText;
+    // UI-8.3: meals the feeder says it gave today ("OK FED 2" = 2), -1 = not known yet
+    private int feederMealsToday = -1;
     private boolean bluetoothScheduleBackupRequired = false;
 
     @Override
@@ -36,13 +42,14 @@ public class ScheduleActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_feeder_schedule);
 
-      // Connect the code to the views in the layout
+        // Connect the code to the views in the layout
         timePicker = findViewById(R.id.timePicker);
         portionGroup = findViewById(R.id.portionGroup);
         currentScheduleText = findViewById(R.id.currentScheduleText);
         Button saveButton = findViewById(R.id.saveButton);
-        // Back arrow: closes this screen and returns to Home
-        findViewById(R.id.backButton).setOnClickListener(v -> finish());
+        // Bottom bar: this is the Feeder tab
+        BottomNav.setUp(this, BottomNav.FEEDER);
+        feederStatusText = findViewById(R.id.textFeederStatus);
         timePicker.setIs24HourView(true);
         storage = new ScheduleStorage(this);
 
@@ -57,12 +64,20 @@ public class ScheduleActivity extends Activity {
         feeder = new FeederConnection(this, new FeederConnection.Listener() {
             @Override
             public void onConnectionChanged(boolean connected) {
-                if (connected && bluetoothScheduleBackupRequired) sendTimeAndSchedule();
+                showFeederStatus(connected);
+                if (connected) {
+                    // UI-8.3: the feeder also needs the meal limit for scheduled meals
+                    feeder.send(FeederMessage.limitCommand(new SettingsStorage(ScheduleActivity.this).getMealLimit()));
+                    if (bluetoothScheduleBackupRequired) sendTimeAndSchedule();
+                }
             }
 
             @Override
             public void onReply(@NotNull FeederReply reply) {
                 if (reply instanceof FeederReply.TimeSet) return; // nothing to tell the owner
+                if (reply instanceof FeederReply.LimitSet) return;
+                if (reply instanceof FeederReply.Fed) feederMealsToday = ((FeederReply.Fed) reply).getFeedsToday();
+                if (reply instanceof FeederReply.ScheduledFed) feederMealsToday = ((FeederReply.ScheduledFed) reply).getFeedsToday();
                 Toast.makeText(ScheduleActivity.this, FeederMessage.screenText(reply),
                         Toast.LENGTH_SHORT).show();
             }
@@ -98,10 +113,19 @@ public class ScheduleActivity extends Activity {
      */
     private void sendTimeAndSchedule() {
         feeder.send(FeederMessage.timeCommandNow());
+        // UI-8.3: the meal limit from Settings, so the feeder also skips scheduled meals past it
+        feeder.send(FeederMessage.limitCommand(new SettingsStorage(this).getMealLimit()));
         if (storage.hasSchedule()) {
             feeder.send(FeederMessage.scheduleCommand(
                     storage.getHour(), storage.getMinute(), storage.getPortion()));
         }
+    }
+
+    /** Green "Feeder connected" or red "Feeder not connected" at the top of the screen. */
+    private void showFeederStatus(boolean connected) {
+        // Commands go through Firebase; Bluetooth is only the backup
+        feederStatusText.setText(connected ? "Bluetooth backup connected" : "Using Firebase (Bluetooth backup off)");
+        feederStatusText.setTextColor(connected ? 0xFF15803D : 0xFF475569);
     }
 
     /**FD-1.2: If a schedule was saved before, show it on the screen.
@@ -192,7 +216,37 @@ public class ScheduleActivity extends Activity {
     }
 
     // FD-2.1: ask first, so the pet doesn't get an extra meal by accident
+    /**
+     * UI-8.3: check the daily meal limit from Settings before Feed now.
+     * Counts today's meals from Firebase. Without Firebase, uses what the feeder said over Bluetooth.
+     */
     private void onFeedNowClicked() {
+        int limit = new SettingsStorage(this).getMealLimit();
+        String uid = FirebaseAuth.getInstance().getUid();
+        if (uid == null) {
+            checkLimitThenConfirm(Math.max(feederMealsToday, 0), limit);
+            return;
+        }
+        long now = System.currentTimeMillis();
+        new PetCloudRepository(uid).loadFeedingsBetween(MealLimit.startOfDay(now), now,
+                rows -> {
+                    int meals = MealLimit.mealsToday(rows, now);
+                    runOnUiThread(() -> checkLimitThenConfirm(meals, limit));
+                    return Unit.INSTANCE;
+                },
+                error -> {
+                    // Could not count today's meals: fall back to what the feeder told us
+                    runOnUiThread(() -> checkLimitThenConfirm(Math.max(feederMealsToday, 0), limit));
+                    return Unit.INSTANCE;
+                });
+    }
+
+    private void checkLimitThenConfirm(int mealsToday, int limit) {
+        if (!MealLimit.canFeed(mealsToday, limit)) {
+            Toast.makeText(this, "Daily limit reached (" + mealsToday + " of " + limit
+                    + " meals). You can change it in Settings.", Toast.LENGTH_LONG).show();
+            return;
+        }
         int portion = getFeedNowPortion();
         new AlertDialog.Builder(this, android.R.style.Theme_Material_Light_Dialog_Alert)
                 .setTitle("Feed now?")

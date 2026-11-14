@@ -1,323 +1,458 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView
+<!-- UI-3 Home dashboard, from our Stitch draft (only what the app really measures).
+     Top bar and bottom bar are shared with the other main pages. -->
+<LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:fillViewport="true"
+    android:orientation="vertical"
     android:fitsSystemWindows="true"
     android:background="@color/background">
 
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical">
+    <include layout="@layout/top_bar" />
 
-        <!-- Teal header, same as the feeding schedule screen -->
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true">
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:background="@color/primary"
-            android:paddingStart="24dp"
-            android:paddingEnd="24dp"
-            android:paddingTop="28dp"
-            android:paddingBottom="24dp">
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp"
+            android:paddingTop="20dp"
+            android:paddingBottom="32dp">
 
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="PetTracker"
-                android:textSize="30sp"
-                android:textStyle="bold"
-                android:textColor="#FFFFFF"/>
-
+            <!-- ===== Greeting ===== -->
             <TextView
                 android:id="@+id/textWelcome"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="Welcome!"
-                android:textSize="15sp"
-                android:textColor="@color/primary_light"
-                android:layout_marginTop="4dp"/>
-        </LinearLayout>
-
-        <!-- Everything under the header -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:padding="20dp">
-
-            <!-- My Pet -->
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="My pet"
-                android:textSize="18sp"
-                android:textStyle="bold"
-                android:textColor="@color/text_primary"
-                android:layout_marginBottom="8dp"/>
+                style="@style/Pt.Body"
+                android:textSize="14sp" />
 
             <TextView
                 android:id="@+id/textPetName"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:minHeight="64dp"
-                android:text="No pet profile yet"
-                android:textSize="18sp"
-                android:textColor="@color/text_primary"
-                android:background="@drawable/bg_card"
-                android:gravity="center_vertical"
-                android:padding="16dp"
-                android:layout_marginBottom="20dp"/>
+                android:text="Add your pet"
+                style="@style/Pt.Metric"
+                android:textSize="28sp"
+                android:layout_marginTop="2dp" />
 
-            <!-- Collar connection -->
+            <!-- ===== Alert (COL-5, COL-6): left the safe zone, collar offline. Hidden when all is fine ===== -->
             <TextView
+                android:id="@+id/textAlert"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Collar connection"
-                android:textSize="18sp"
-                android:textStyle="bold"
-                android:textColor="@color/text_primary"
-                android:layout_marginBottom="8dp"/>
-
-            <TextView
-                android:id="@+id/textConnection"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:minHeight="64dp"
-                android:text="Disconnected"
-                android:textSize="16sp"
-                android:textColor="#DC2626"
-                android:background="@drawable/bg_card"
-                android:gravity="center_vertical"
-                android:padding="16dp"
-                android:layout_marginBottom="20dp"/>
-
-            <TextView
-                android:id="@+id/textCollarBattery"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:minHeight="48dp"
-                android:text="Collar battery: unavailable"
-                android:textSize="15sp"
-                android:textColor="@color/text_secondary"
-                android:background="@drawable/bg_card"
-                android:gravity="center_vertical"
-                android:padding="16dp"
-                android:layout_marginTop="-12dp"
-                android:layout_marginBottom="20dp"/>
-
-            <!-- Latest activity -->
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Latest activity"
-                android:textSize="18sp"
-                android:textStyle="bold"
-                android:textColor="@color/text_primary"
-                android:layout_marginBottom="8dp"/>
-
-            <TextView
-                android:id="@+id/textActivity"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:minHeight="64dp"
-                android:text="No data yet"
-                android:textSize="16sp"
-                android:textColor="@color/text_secondary"
-                android:background="@drawable/bg_card"
-                android:gravity="center_vertical"
-                android:padding="16dp"
-                android:layout_marginBottom="20dp"/>
-
-            <TextView
-                android:id="@+id/textHeartRate"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:minHeight="56dp"
-                android:text="Heart rate: waiting for collar data"
-                android:textSize="16sp"
-                android:textColor="@color/text_primary"
-                android:background="@drawable/bg_card"
-                android:gravity="center_vertical"
-                android:padding="16dp"
-                android:layout_marginBottom="20dp"/>
-
-            <!-- Feeder (FD-2.1) -->
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Feeder"
-                android:textSize="18sp"
-                android:textStyle="bold"
-                android:textColor="@color/text_primary"
-                android:layout_marginBottom="8dp"/>
-
-            <TextView
-                android:id="@+id/textFeederConnection"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:minHeight="56dp"
-                android:text="Waiting for feeder heartbeat"
-                android:textSize="15sp"
-                android:textColor="@color/text_secondary"
-                android:background="@drawable/bg_card"
-                android:gravity="center_vertical"
-                android:padding="16dp"
-                android:layout_marginBottom="8dp"/>
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Feeder command status"
+                android:text=""
                 android:textSize="14sp"
-                android:textStyle="bold"
-                android:textColor="@color/text_secondary"
-                android:layout_marginBottom="6dp"/>
+                android:textColor="@color/heart"
+                android:fontFamily="@font/plus_jakarta_sans_semibold"
+                android:background="@drawable/bg_alert"
+                android:padding="14dp"
+                android:visibility="gone"
+                android:layout_marginTop="16dp" />
 
-            <TextView
-                android:id="@+id/textFeeder"
+            <!-- ===== Devices: collar and feeder ===== -->
+            <LinearLayout
+                style="@style/Pt.Card"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:minHeight="64dp"
-                android:text="Feeder disconnected"
-                android:textSize="16sp"
-                android:textColor="#DC2626"
-                android:background="@drawable/bg_card"
-                android:gravity="center_vertical"
-                android:padding="16dp"
-                android:layout_marginBottom="12dp"/>
+                android:layout_marginTop="20dp">
 
-            <RadioGroup
-                android:id="@+id/homeFeedPortionGroup"
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Devices"
+                    style="@style/Pt.Label" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:baselineAligned="false"
+                    android:layout_marginTop="12dp">
+
+                    <!-- Collar tile -->
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_weight="1"
+                        android:orientation="vertical"
+                        android:background="@drawable/bg_tile"
+                        android:padding="14dp"
+                        android:layout_marginEnd="6dp">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical">
+
+                            <ImageView
+                                style="@style/Pt.Icon"
+                                android:layout_width="36dp"
+                                android:layout_height="36dp"
+                                android:padding="8dp"
+                                android:background="@drawable/bg_icon_teal"
+                                android:src="@drawable/ic_pets"
+                                android:tint="@color/primary"
+                                android:contentDescription="Collar" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Collar"
+                                style="@style/Pt.Title"
+                                android:layout_marginStart="10dp" />
+                        </LinearLayout>
+
+                        <TextView
+                            android:id="@+id/textConnection"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Waiting for the collar"
+                            android:textSize="13sp"
+                            android:textColor="@color/text_secondary"
+                            android:fontFamily="@font/plus_jakarta_sans_semibold"
+                            android:maxLines="2"
+                            android:ellipsize="end"
+                            android:layout_marginTop="10dp" />
+                    </LinearLayout>
+
+                    <!-- Feeder tile -->
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_weight="1"
+                        android:orientation="vertical"
+                        android:background="@drawable/bg_tile"
+                        android:padding="14dp"
+                        android:layout_marginStart="6dp">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical">
+
+                            <ImageView
+                                style="@style/Pt.Icon"
+                                android:layout_width="36dp"
+                                android:layout_height="36dp"
+                                android:padding="8dp"
+                                android:background="@drawable/bg_icon_orange"
+                                android:src="@drawable/ic_restaurant"
+                                android:tint="@color/accent"
+                                android:contentDescription="Feeder" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Feeder"
+                                style="@style/Pt.Title"
+                                android:layout_marginStart="10dp" />
+                        </LinearLayout>
+
+                        <TextView
+                            android:id="@+id/textFeederConnection"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Waiting for the feeder"
+                            android:textSize="13sp"
+                            android:textColor="@color/text_secondary"
+                            android:fontFamily="@font/plus_jakarta_sans_semibold"
+                            android:maxLines="2"
+                            android:ellipsize="end"
+                            android:layout_marginTop="10dp" />
+                    </LinearLayout>
+
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- ===== Location and next meal, side by side ===== -->
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:layout_marginBottom="8dp">
+                android:baselineAligned="false"
+                android:layout_marginTop="16dp">
 
-                <RadioButton
-                    android:id="@+id/homeFeedSmall"
+                <!-- Location (COL-6): at home or outside the safe zone -->
+                <LinearLayout
+                    style="@style/Pt.Card"
                     android:layout_width="0dp"
-                    android:layout_height="wrap_content"
+                    android:layout_height="match_parent"
                     android:layout_weight="1"
-                    android:text="Small" />
+                    android:layout_marginEnd="6dp">
 
-                <RadioButton
-                    android:id="@+id/homeFeedMedium"
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <ImageView
+                            style="@style/Pt.Icon"
+                            android:background="@drawable/bg_icon_teal"
+                            android:src="@drawable/ic_location_on"
+                            android:tint="@color/primary"
+                            android:contentDescription="Location" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Location"
+                            style="@style/Pt.Label"
+                            android:layout_marginStart="10dp" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/textHomeLocation"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="No GPS yet"
+                        style="@style/Pt.Metric"
+                        android:textSize="22sp"
+                        android:layout_marginTop="16dp" />
+
+                    <!-- Pushes the note to the bottom of the card -->
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="0dp"
+                        android:layout_weight="1" />
+
+                    <TextView
+                        android:id="@+id/textHomeLocationNote"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="See the Collar page"
+                        style="@style/Pt.Body"
+                        android:textSize="12sp"
+                        android:layout_marginTop="12dp" />
+                </LinearLayout>
+
+                <!-- Next meal, from the saved schedule -->
+                <LinearLayout
+                    style="@style/Pt.Card"
                     android:layout_width="0dp"
-                    android:layout_height="wrap_content"
+                    android:layout_height="match_parent"
                     android:layout_weight="1"
-                    android:checked="true"
-                    android:text="Medium" />
+                    android:layout_marginStart="6dp">
 
-                <RadioButton
-                    android:id="@+id/homeFeedLarge"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Large" />
-            </RadioGroup>
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
 
+                        <ImageView
+                            style="@style/Pt.Icon"
+                            android:background="@drawable/bg_icon_orange"
+                            android:src="@drawable/ic_restaurant"
+                            android:tint="@color/accent"
+                            android:contentDescription="Next meal" />
 
-            <Button
-                android:id="@+id/buttonFeedNow"
-                android:layout_width="match_parent"
-                android:layout_height="56dp"
-                android:text="Feed now"
-                android:textAllCaps="false"
-                android:textSize="16sp"
-                android:textStyle="bold"
-                android:textColor="#FFFFFF"
-                android:background="@drawable/bg_primary_button"
-                android:enabled="false"
-                android:alpha="0.5"
-                android:layout_marginBottom="28dp"/>
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Next meal"
+                            style="@style/Pt.Label"
+                            android:layout_marginStart="10dp" />
+                    </LinearLayout>
 
-            <TextView
+                    <TextView
+                        android:id="@+id/textNextMeal"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Not set"
+                        style="@style/Pt.Metric"
+                        android:textSize="26sp"
+                        android:layout_marginTop="16dp" />
+
+                    <TextView
+                        android:id="@+id/textNextPortion"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Set a schedule"
+                        style="@style/Pt.Body" />
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="0dp"
+                        android:layout_weight="1" />
+
+                    <Button
+                        android:id="@+id/buttonSchedule"
+                        style="@style/Pt.RowButton"
+                        android:layout_height="40dp"
+                        android:gravity="center"
+                        android:text="Edit schedule"
+                        android:textSize="13sp"
+                        android:textColor="@color/primary"
+                        android:background="@drawable/bg_tile"
+                        android:layout_marginTop="12dp" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- ===== Feed now (sent through Firebase) ===== -->
+            <LinearLayout
+                style="@style/Pt.Card"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Feeding history"
-                android:textSize="18sp"
-                android:textStyle="bold"
-                android:textColor="@color/text_primary"
-                android:layout_marginBottom="8dp"/>
+                android:layout_marginTop="16dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Feed now"
+                        style="@style/Pt.Label" />
+
+                    <!-- UI-8.3: meals given today out of the limit in Settings -->
+                    <TextView
+                        android:id="@+id/textMealsToday"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text=""
+                        style="@style/Pt.Body"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+                <RadioGroup
+                    android:id="@+id/homeFeedPortionGroup"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginTop="12dp"
+                    android:layout_marginStart="-4dp"
+                    android:layout_marginEnd="-4dp">
+
+                    <RadioButton
+                        android:id="@+id/homeFeedSmall"
+                        style="@style/Pt.Chip"
+                        android:text="Small" />
+
+                    <RadioButton
+                        android:id="@+id/homeFeedMedium"
+                        style="@style/Pt.Chip"
+                        android:checked="true"
+                        android:text="Medium" />
+
+                    <RadioButton
+                        android:id="@+id/homeFeedLarge"
+                        style="@style/Pt.Chip"
+                        android:text="Large" />
+                </RadioGroup>
+
+                <Button
+                    android:id="@+id/buttonFeedNow"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:text="Feed now"
+                    android:textSize="16sp"
+                    android:textColor="#FFFFFF"
+                    android:background="@drawable/bg_accent_button"
+                    android:stateListAnimator="@null"
+                    android:layout_marginTop="14dp" />
+
+                <!-- What happened to the last Feed Now -->
+                <TextView
+                    android:id="@+id/textFeeder"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:text="Pick a portion, then tap Feed now"
+                    style="@style/Pt.Body"
+                    android:textSize="12sp"
+                    android:layout_marginTop="10dp" />
+            </LinearLayout>
+
+            <!-- ===== Live motion from the collar ===== -->
+            <LinearLayout
+                style="@style/Pt.Card"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginTop="16dp">
+
+                <ImageView
+                    style="@style/Pt.Icon"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:padding="11dp"
+                    android:background="@drawable/bg_icon_teal"
+                    android:src="@drawable/ic_directions_run"
+                    android:tint="@color/primary"
+                    android:contentDescription="Activity" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:layout_marginStart="14dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Activity"
+                        style="@style/Pt.Label" />
+
+                    <TextView
+                        android:id="@+id/textActivity"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="No data yet"
+                        style="@style/Pt.Title"
+                        android:textSize="17sp"
+                        android:layout_marginTop="2dp" />
+
+                    <TextView
+                        android:id="@+id/textActivityTime"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text=""
+                        style="@style/Pt.Body"
+                        android:textSize="12sp" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- ===== Recent meals, from Firebase ===== -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Recent meals"
+                style="@style/Pt.Label"
+                android:layout_marginTop="24dp"
+                android:layout_marginBottom="8dp"
+                android:layout_marginStart="4dp" />
 
             <TextView
                 android:id="@+id/textFeedHistory"
+                style="@style/Pt.Card"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:minHeight="64dp"
                 android:text="No meals recorded yet"
                 android:textSize="14sp"
-                android:textColor="@color/text_secondary"
-                android:background="@drawable/bg_card"
-                android:padding="16dp"
-                android:layout_marginBottom="20dp"/>
-
-
-            <!-- Main buttons: all teal -->
-            <Button
-                android:id="@+id/buttonSearchCollar"
-                android:layout_width="match_parent"
-                android:layout_height="56dp"
-                android:text="Search for collar"
-                android:textAllCaps="false"
-                android:textSize="16sp"
-                android:textStyle="bold"
-                android:textColor="#FFFFFF"
-                android:background="@drawable/bg_primary_button"
-                android:layout_marginBottom="12dp"/>
-
-            <!-- UI-5: opens the Collar page -->
-            <Button
-                android:id="@+id/buttonCollar"
-                android:layout_width="match_parent"
-                android:layout_height="56dp"
-                android:text="Collar vitals"
-                android:textAllCaps="false"
-                android:textSize="16sp"
-                android:textStyle="bold"
-                android:textColor="#FFFFFF"
-                android:background="@drawable/bg_primary_button"
-                android:layout_marginBottom="12dp"/>
-
-            <Button
-                android:id="@+id/buttonProfile"
-                android:layout_width="match_parent"
-                android:layout_height="56dp"
-                android:text="Pet profile"
-                android:textAllCaps="false"
-                android:textSize="16sp"
-                android:textStyle="bold"
-                android:textColor="#FFFFFF"
-                android:background="@drawable/bg_primary_button"
-                android:layout_marginBottom="12dp"/>
-
-            <Button
-                android:id="@+id/buttonSchedule"
-                android:layout_width="match_parent"
-                android:layout_height="56dp"
-                android:text="Feeding schedule"
-                android:textAllCaps="false"
-                android:textSize="16sp"
-                android:textStyle="bold"
-                android:textColor="#FFFFFF"
-                android:background="@drawable/bg_primary_button"
-                android:layout_marginBottom="24dp"/>
-
-            <!-- Logout: outlined, so it's clearly different -->
-            <Button
-                android:id="@+id/buttonLogout"
-                android:layout_width="match_parent"
-                android:layout_height="56dp"
-                android:text="Log out"
-                android:textAllCaps="false"
-                android:textSize="16sp"
-                android:textStyle="bold"
-                android:textColor="@color/primary"
-                android:background="@drawable/bg_secondary_button"/>
+                android:textColor="@color/text_primary"
+                android:fontFamily="@font/plus_jakarta_sans_medium"
+                android:lineSpacingExtra="6dp" />
 
         </LinearLayout>
-    </LinearLayout>
-</ScrollView>
+    </ScrollView>
+
+    <include layout="@layout/bottom_nav" />
+</LinearLayout>

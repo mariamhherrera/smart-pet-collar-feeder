@@ -42,13 +42,14 @@ class HomeActivity : Activity() {
     private val refreshCollarStatus = object : Runnable {
         override fun run() {
             showCollarOnline()
+            showLocationAndAlerts()
             clockHandler.postDelayed(this, 10_000L)
         }
     }
 
     // UI-8.3: meals given today, from the feeding history in Firebase
     private var mealsToday = 0
-    private var petSpecies: String? = null
+    private var lastLocation: CollarReading? = null // newest reading that had a GPS position
 
     // Feeder (FD-2.1): one Bluetooth link to PetFeeder_ESP32
     private var feederLink: BluetoothLink? = null
@@ -232,7 +233,6 @@ class HomeActivity : Activity() {
     private fun showPetInformation() {
         val user = auth.currentUser ?: return
         val profile = database.getPetProfile(user.uid)
-        petSpecies = profile?.species
 
         findViewById<TextView>(R.id.textWelcome).text =
             "Welcome, ${user.email ?: "User"}"
@@ -307,7 +307,7 @@ class HomeActivity : Activity() {
         val cloud = PetCloudRepository(uid)
         this.cloud = cloud
 
-        // Collar: newest reading (live motion, heart rate), also saved in the history (UI-6.1)
+        // Collar: newest reading (live motion, location), also saved in the history (UI-6.1)
         collarListener = cloud.listenToLatestCollar(
             onValue = { row ->
                 runOnUiThread {
@@ -318,7 +318,8 @@ class HomeActivity : Activity() {
 
                     textActivity.text = "X %.2f · Y %.2f · Z %.2f g".format(reading.ax, reading.ay, reading.az)
                     findViewById<TextView>(R.id.textActivityTime).text = "Updated " + clock(lastCollarReadingTime)
-                    showHeartRate(reading.heartRate)
+                    if (reading.hasLocation()) lastLocation = reading
+                    showLocationAndAlerts()
                 }
             },
             onError = { message -> runOnUiThread { textConnection.text = "Firebase error: $message" } }
@@ -366,20 +367,48 @@ class HomeActivity : Activity() {
         )
     }
 
-    /** UI-5.3: the number turns blue (low), green (normal) or red (high) for the pet's species. */
-    private fun showHeartRate(bpm: Int?) {
-        val number = findViewById<TextView>(R.id.textHeartRate)
-        val note = findViewById<TextView>(R.id.textHeartRateNote)
-        if (bpm == null || bpm <= 0) {
-            number.text = "--"
-            number.setTextColor(getColor(R.color.text_primary))
-            note.text = "Waiting for the collar"
-            return
+    /**
+     * Location card (COL-6) and the alert box at the top of Home.
+     * Alerts: the pet left the safe zone (if turned on in Settings), or the collar went offline.
+     */
+    private fun showLocationAndAlerts() {
+        val settings = SettingsStorage(this)
+        val place = findViewById<TextView>(R.id.textHomeLocation)
+        val note = findViewById<TextView>(R.id.textHomeLocationNote)
+        val spot = lastLocation
+        var outside = false
+
+        when (SafeZone.status(spot, settings.homeLatitude, settings.homeLongitude, settings.safeRadius)) {
+            SafeZone.Status.NO_GPS -> {
+                place.text = "No GPS yet"
+                place.setTextColor(getColor(R.color.text_primary))
+                note.text = "GPS works outside or near a window"
+            }
+            SafeZone.Status.NO_HOME -> {
+                place.text = "Found"
+                place.setTextColor(getColor(R.color.text_primary))
+                note.text = "Set home in Settings"
+            }
+            else -> {
+                val meters = SafeZone.distanceMeters(settings.homeLatitude!!, settings.homeLongitude!!,
+                    spot!!.latitude!!, spot.longitude!!)
+                outside = meters > settings.safeRadius
+                place.text = if (outside) "Away" else "At home"
+                place.setTextColor(if (outside) 0xFFDC2626.toInt() else 0xFF15803D.toInt())
+                note.text = SafeZone.formatDistance(meters) + " from home"
+            }
         }
-        val level = HeartRateRange.levelOf(bpm, petSpecies)
-        number.text = bpm.toString()
-        number.setTextColor(level.color)
-        note.text = level.label + " for " + (if (petSpecies == "Cat") "a cat" else "a dog")
+
+        // Alert box: only shown when something needs the owner's attention
+        val alerts = mutableListOf<String>()
+        val petName = findViewById<TextView>(R.id.textPetName).text.toString()
+            .removePrefix("Hi, ").removeSuffix("!").takeIf { it != "Add your pet" } ?: "Your pet"
+        if (outside && settings.safeZoneAlerts) alerts.add("$petName left the safe zone. Check the Collar page.")
+        if (lastCollarReadingTime > 0 && System.currentTimeMillis() - lastCollarReadingTime > 30_000L)
+            alerts.add("The collar is offline since " + clock(lastCollarReadingTime) + ".")
+        val alertBox = findViewById<TextView>(R.id.textAlert)
+        alertBox.text = alerts.joinToString("\n")
+        alertBox.visibility = if (alerts.isEmpty()) android.view.View.GONE else android.view.View.VISIBLE
     }
 
     private fun detachCloudListeners() {

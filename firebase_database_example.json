@@ -21,7 +21,9 @@
             "z": 0.1
           },
           "receivedAt": 1760000000000,
-          "heartRateBpm": 92,
+          "latitude": 45.4970,
+        "longitude": -73.5790,
+        "satellites": 7,
           "batteryVoltage": 3.95,
           "batteryPercent": 72
         },

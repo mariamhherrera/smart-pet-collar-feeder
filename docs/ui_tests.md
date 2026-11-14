@@ -1,12 +1,12 @@
 # UI tests (Sprint 2)
 
 Manual tests for the UI issues, run on the emulator or a phone after `Sync` and `Run`.
-The logic behind them (heart rate ranges, meal limit, reading collar data) is also covered
+The logic behind them (safe zone, meal limit, reading collar data) is also covered
 by `UiLogicTest` in `android-app/app/src/test` (13 tests), and the feeder's LIMIT command was tested on a computer (10 checks).
 
 | Test | Issue | Steps | Expected | Result |
 |---|---|---|---|---|
-| T1 | UI-3.4 | Log in. | Home opens: greeting with the pet's name, Devices, Heart rate, Next meal, Feed now, Activity, Recent meals. | |
+| T1 | UI-3.4 | Log in. | Home opens: greeting with the pet's name, Devices, Location, Next meal, Feed now, Activity, Recent meals. | |
 | T2 | UI-3.3 | Tap each tab at the bottom, then the phone's Back button. | Each page opens with its tab in teal. Back always returns to Home. | |
 | T3 | UI-7.1 | Tap the round profile icon (top right) on any page. | Pet profile opens with a back arrow. Back returns to the page you were on. | |
 | T4 | UI-7.2 | Change the pet's name, tap Save profile. | Home says "Hi, (new name)!". | |
@@ -14,7 +14,8 @@ by `UiLogicTest` in `android-app/app/src/test` (13 tests), and the feeder's LIMI
 | T6 | UI-4.2 | Feeder page: pick Large, tap Feed now, then Feed. | Confirmation pop-up first. With the feeder connected, it gives a large portion. | |
 | T7 | UI-5.4 | Turn on the collar (Wi-Fi). Open the Collar page. | Status turns green "Online" within 5 seconds. Live motion changes when the collar moves. | |
 | T8 | UI-5.4 | Turn off the collar, wait 30 seconds. | Status turns red "Offline since (time)". | |
-| T9 | UI-5.1, UI-5.3 | With the collar off, put a test heart rate in Firebase (`owners/(uid)/collar/latest/heartRate`) for a dog: 50, then 90, then 130. | Number is red "Low", then green "Normal", then red "High". Range text says 60 to 120 BPM. | |
+| T9 | COL-6 | With the collar off, put a test position in Firebase (`owners/(uid)/collar/latest`: `latitude`, `longitude`, and `receivedAt` = now in ms). Open the Collar page. | Location card shows "Location found", and "Open in Maps" opens the map at that spot. | |
+| T9b | COL-6 | Settings: tap "Set home to the collar's location now", pick 100 m, Save. Then change `latitude` in Firebase by 0.002 (about 220 m). | Collar page: "Outside the safe zone" in red with the distance. Home: "Away" and the alert "(pet) left the safe zone". Changing it back shows "At home". | |
 | T10 | UI-6.3 | Keep the collar on with the app open for 10 minutes, then open History. | Movement graph for Today shows a line. | |
 | T10b | UI-6.1 | On History, tap the left arrow to go to yesterday, then the right arrow. | Yesterday's readings and meal count load (or "No collar readings on this day"). The right arrow stops at Today. | |
 | T11 | UI-6.3 | Give 2 meals with Feed now, open History. | Today's bar in "Meals, last 7 days" goes up by 2. | |

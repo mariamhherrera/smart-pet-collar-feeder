@@ -44,6 +44,20 @@
                 android:textSize="28sp"
                 android:layout_marginTop="2dp" />
 
+            <!-- ===== Alert (COL-5, COL-6): left the safe zone, collar offline. Hidden when all is fine ===== -->
+            <TextView
+                android:id="@+id/textAlert"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text=""
+                android:textSize="14sp"
+                android:textColor="@color/heart"
+                android:fontFamily="@font/plus_jakarta_sans_semibold"
+                android:background="@drawable/bg_alert"
+                android:padding="14dp"
+                android:visibility="gone"
+                android:layout_marginTop="16dp" />
+
             <!-- ===== Devices: collar and feeder ===== -->
             <LinearLayout
                 style="@style/Pt.Card"
@@ -161,7 +175,7 @@
                 </LinearLayout>
             </LinearLayout>
 
-            <!-- ===== Heart rate and next meal, side by side ===== -->
+            <!-- ===== Location and next meal, side by side ===== -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -169,7 +183,7 @@
                 android:baselineAligned="false"
                 android:layout_marginTop="16dp">
 
-                <!-- Heart rate: the number turns blue, green or red (UI-5.3) -->
+                <!-- Location (COL-6): at home or outside the safe zone -->
                 <LinearLayout
                     style="@style/Pt.Card"
                     android:layout_width="0dp"
@@ -185,41 +199,27 @@
 
                         <ImageView
                             style="@style/Pt.Icon"
-                            android:background="@drawable/bg_icon_red"
-                            android:src="@drawable/ic_monitor_heart"
-                            android:tint="@color/heart"
-                            android:contentDescription="Heart rate" />
+                            android:background="@drawable/bg_icon_teal"
+                            android:src="@drawable/ic_location_on"
+                            android:tint="@color/primary"
+                            android:contentDescription="Location" />
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Heart rate"
+                            android:text="Location"
                             style="@style/Pt.Label"
                             android:layout_marginStart="10dp" />
                     </LinearLayout>
 
-                    <LinearLayout
-                        android:layout_width="wrap_content"
+                    <TextView
+                        android:id="@+id/textHomeLocation"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:layout_marginTop="16dp">
-
-                        <TextView
-                            android:id="@+id/textHeartRate"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="--"
-                            style="@style/Pt.Metric"
-                            android:textSize="34sp" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="BPM"
-                            style="@style/Pt.Label"
-                            android:textSize="12sp"
-                            android:layout_marginStart="4dp" />
-                    </LinearLayout>
+                        android:text="No GPS yet"
+                        style="@style/Pt.Metric"
+                        android:textSize="22sp"
+                        android:layout_marginTop="16dp" />
 
                     <!-- Pushes the note to the bottom of the card -->
                     <View
@@ -228,10 +228,10 @@
                         android:layout_weight="1" />
 
                     <TextView
-                        android:id="@+id/textHeartRateNote"
+                        android:id="@+id/textHomeLocationNote"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="Waiting for the collar"
+                        android:text="See the Collar page"
                         style="@style/Pt.Body"
                         android:textSize="12sp"
                         android:layout_marginTop="12dp" />

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- UI-8 Settings page: meal limit, alerts, and account (log out).
+<!-- UI-8 Settings page: meal limit, alerts, safe zone (COL-6), and account (log out).
      Top bar and bottom bar are shared with the other main pages. -->
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
@@ -165,12 +165,106 @@
                     android:layout_marginTop="16dp"
                     android:layout_marginBottom="12dp" />
 
+                <!-- COL-5: compares today's activity with the last 7 days -->
                 <Switch
-                    android:id="@+id/switchHeartAlerts"
+                    android:id="@+id/switchLessActive"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:checked="true"
-                    android:text="Warn me when the heart rate is outside the normal range"
+                    android:text="Warn me when my pet is much less active than usual"
+                    android:textSize="14sp"
+                    android:textColor="@color/text_primary"
+                    android:fontFamily="@font/plus_jakarta_sans_semibold" />
+            </LinearLayout>
+
+            <!-- ===== Safe zone (COL-6, GPS) ===== -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Safe zone"
+                style="@style/Pt.Label"
+                android:layout_marginTop="24dp"
+                android:layout_marginBottom="8dp"
+                android:layout_marginStart="4dp" />
+
+            <LinearLayout
+                style="@style/Pt.Card"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Home"
+                    style="@style/Pt.Title" />
+
+                <TextView
+                    android:id="@+id/textHomeSet"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Not set yet"
+                    style="@style/Pt.Body"
+                    android:textSize="12sp" />
+
+                <!-- Saves the collar's current GPS position as home (do it with the collar at home) -->
+                <Button
+                    android:id="@+id/buttonSetHome"
+                    android:layout_width="match_parent"
+                    android:layout_height="44dp"
+                    android:minHeight="44dp"
+                    android:text="Set home to the collar's location now"
+                    android:textSize="14sp"
+                    android:textColor="@color/primary"
+                    android:background="@drawable/bg_secondary_button"
+                    android:stateListAnimator="@null"
+                    android:layout_marginTop="12dp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Size of the safe zone"
+                    style="@style/Pt.Title"
+                    android:layout_marginTop="16dp" />
+
+                <RadioGroup
+                    android:id="@+id/safeRadiusGroup"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginTop="12dp"
+                    android:layout_marginStart="-4dp"
+                    android:layout_marginEnd="-4dp">
+
+                    <RadioButton
+                        android:id="@+id/radius50"
+                        style="@style/Pt.Chip"
+                        android:text="50 m" />
+
+                    <RadioButton
+                        android:id="@+id/radius100"
+                        style="@style/Pt.Chip"
+                        android:checked="true"
+                        android:text="100 m" />
+
+                    <RadioButton
+                        android:id="@+id/radius200"
+                        style="@style/Pt.Chip"
+                        android:text="200 m" />
+                </RadioGroup>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:background="@color/card_border"
+                    android:layout_marginTop="16dp"
+                    android:layout_marginBottom="12dp" />
+
+                <Switch
+                    android:id="@+id/switchSafeZone"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:checked="true"
+                    android:text="Warn me when my pet leaves the safe zone"
                     android:textSize="14sp"
                     android:textColor="@color/text_primary"
                     android:fontFamily="@font/plus_jakarta_sans_semibold" />

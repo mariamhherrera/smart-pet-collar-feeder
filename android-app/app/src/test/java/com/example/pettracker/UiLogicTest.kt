@@ -10,38 +10,50 @@ import com.example.pettracker.charts.ChartData
 import org.junit.Test
 import java.util.Calendar
 
-/** Tests for the UI logic: heart rate ranges (UI-5), meal limit (UI-8.3), readings (UI-6.1). */
+/** Tests for the UI logic: safe zone (COL-6), meal limit (UI-8.3), readings (UI-6.1). */
 class UiLogicTest {
 
-    // ---------- UI-5.1 / UI-5.3 heart rate ranges ----------
+    // ---------- COL-6 GPS location and safe zone ----------
+
+    private fun at(lat: Double, lon: Double) =
+        CollarReading(1L, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, battery = null, latitude = lat, longitude = lon)
 
     @Test
-    fun dogHeartRateLevels() {
-        assertEquals(HeartRateRange.Level.LOW, HeartRateRange.levelOf(59, "Dog"))
-        assertEquals(HeartRateRange.Level.NORMAL, HeartRateRange.levelOf(60, "Dog"))
-        assertEquals(HeartRateRange.Level.NORMAL, HeartRateRange.levelOf(120, "Dog"))
-        assertEquals(HeartRateRange.Level.HIGH, HeartRateRange.levelOf(121, "Dog"))
+    fun distanceBetweenTwoKnownPoints() {
+        // 0.001 degree of latitude is about 111 m everywhere on Earth
+        val d = SafeZone.distanceMeters(45.4970, -73.5790, 45.4980, -73.5790)
+        assertTrue(d in 105.0..117.0)
+        assertEquals(0.0, SafeZone.distanceMeters(45.5, -73.6, 45.5, -73.6), 1e-6)
     }
 
     @Test
-    fun catHeartRateLevels() {
-        assertEquals(HeartRateRange.Level.LOW, HeartRateRange.levelOf(119, "Cat"))
-        assertEquals(HeartRateRange.Level.NORMAL, HeartRateRange.levelOf(130, "Cat"))
-        assertEquals(HeartRateRange.Level.NORMAL, HeartRateRange.levelOf(180, "Cat"))
-        assertEquals(HeartRateRange.Level.HIGH, HeartRateRange.levelOf(181, "Cat"))
+    fun safeZoneInsideAndOutside() {
+        val homeLat = 45.4970; val homeLon = -73.5790
+        assertEquals(SafeZone.Status.INSIDE, SafeZone.status(at(45.4972, -73.5790), homeLat, homeLon, 100))  // ~22 m
+        assertEquals(SafeZone.Status.OUTSIDE, SafeZone.status(at(45.4990, -73.5790), homeLat, homeLon, 100)) // ~222 m
     }
 
     @Test
-    fun noSpeciesUsesDogRange() {
-        assertEquals(60..120, HeartRateRange.rangeFor(null))
-        assertEquals("Normal for a dog: 60 to 120 BPM", HeartRateRange.rangeText(null))
+    fun safeZoneNeedsHomeAndGps() {
+        assertEquals(SafeZone.Status.NO_HOME, SafeZone.status(at(45.5, -73.6), null, null, 100))
+        val noGps = CollarReading(1L, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, battery = null)
+        assertEquals(SafeZone.Status.NO_GPS, SafeZone.status(noGps, 45.5, -73.6, 100))
     }
 
     @Test
-    fun outsideTheRangeIsRed() {
-        val red = 0xFFDC2626.toInt()
-        assertEquals(red, HeartRateRange.levelOf(40, "Dog").color)
-        assertEquals(red, HeartRateRange.levelOf(200, "Cat").color)
+    fun readsGpsFromFirebaseAndIgnoresZeroZero() {
+        val row = mapOf("ax" to 0.0, "ay" to 0.0, "az" to 1.0, "latitude" to 45.4970, "longitude" to -73.5790)
+        val r = CollarReading.fromMap(row)!!
+        assertTrue(r.hasLocation())
+        assertEquals(45.4970, r.latitude!!, 1e-9)
+        val noFix = mapOf("ax" to 0.0, "ay" to 0.0, "az" to 1.0, "lat" to 0.0, "lon" to 0.0)
+        assertFalse(CollarReading.fromMap(noFix)!!.hasLocation())
+    }
+
+    @Test
+    fun distanceText() {
+        assertEquals("12 m", SafeZone.formatDistance(12.4))
+        assertEquals("1.4 km", SafeZone.formatDistance(1400.0))
     }
 
     // ---------- UI-8.3 meal limit ----------
@@ -101,15 +113,14 @@ class UiLogicTest {
         assertEquals(0.99, r.az, 1e-9)
         assertEquals(-0.3, r.gy, 1e-9)
         assertEquals(1760000000000L, r.timeMillis)
-        assertNull(r.heartRate)
+        assertFalse(r.hasLocation())
     }
 
     @Test
     fun readsBluetoothBackupFormat() {
-        val row = mapOf("ax" to 0.0, "ay" to 0L, "az" to "1.0", "time" to 5L, "heartRateBpm" to 90L, "batteryPercent" to 77)
+        val row = mapOf("ax" to 0.0, "ay" to 0L, "az" to "1.0", "time" to 5L, "batteryPercent" to 77)
         val r = CollarReading.fromMap(row)!!
         assertEquals(1.0, r.az, 1e-9)
-        assertEquals(90, r.heartRate)
         assertEquals(77, r.battery)
         assertEquals(0.0, r.movement(), 1e-9) // still: only gravity
     }
@@ -122,10 +133,10 @@ class UiLogicTest {
 
     @Test
     fun historyRowKeepsTheTime() {
-        val r = CollarReading(1234L, 0.1, 0.2, 0.9, 0.0, 0.0, 0.0, heartRate = 80, battery = null)
+        val r = CollarReading(1234L, 0.1, 0.2, 0.9, 0.0, 0.0, 0.0, battery = null, latitude = 45.5, longitude = -73.6)
         val row = r.toHistoryRow()
         assertEquals(1234L, row["time"])
-        assertEquals(80, row["heartRateBpm"])
+        assertEquals(45.5, row["latitude"])
         assertFalse(row.containsKey("batteryPercent"))
     }
 

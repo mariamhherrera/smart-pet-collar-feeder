@@ -17,7 +17,8 @@ import java.util.Locale
  * UI-6 History graphs page.
  *  - Meals, last 7 days: from the feeding history in Firebase (updates live).
  *  - Pick a day (UI-6.1): loads that day's saved readings and meals by date,
- *    then shows its movement and heart rate graphs (UI-6.2).
+ *    then shows its movement graph (UI-6.2). Sleep (COL-5) fills in once the collar sends
+ *    its 1-minute summaries.
  * Readings are saved with their time while the app is open (Home or Collar page).
  */
 class HistoryActivity : Activity() {
@@ -26,7 +27,7 @@ class HistoryActivity : Activity() {
     private var cloud: PetCloudRepository? = null
     private var feedingsListener: ValueEventListener? = null
 
-    /** Midnight of the day shown in the movement and heart rate graphs. */
+    /** Midnight of the day shown in the movement and sleep graphs. */
     private var selectedDay = MealLimit.startOfDay(System.currentTimeMillis())
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -36,7 +37,7 @@ class HistoryActivity : Activity() {
 
         findViewById<SimpleChartView>(R.id.chartMeals).emptyText = "No meals recorded yet"
         findViewById<SimpleChartView>(R.id.chartMovement).emptyText = "No collar readings on this day"
-        findViewById<SimpleChartView>(R.id.chartHeart).emptyText = "No heart rate readings on this day"
+        findViewById<SimpleChartView>(R.id.chartSleep).emptyText = "No sleep data yet (coming with COL-5)"
 
         findViewById<android.view.View>(R.id.buttonPrevDay).setOnClickListener { moveDay(-1) }
         findViewById<android.view.View>(R.id.buttonNextDay).setOnClickListener { moveDay(1) }
@@ -119,7 +120,7 @@ class HistoryActivity : Activity() {
         else chart.setBars(FloatArray(7) { counts[it].toFloat() }, labels, getColor(R.color.accent))
     }
 
-    /** Line graphs for the selected day: movement and heart rate. */
+    /** Line graph for the selected day: movement. */
     private fun showDayOfReadings(all: List<CollarReading>) {
         val readings = all.sortedBy { it.timeMillis }
         val clock = android.text.format.DateFormat.getTimeFormat(this)
@@ -137,19 +138,8 @@ class HistoryActivity : Activity() {
                 getColor(R.color.primary), " g")
         }
 
-        // Heart rate: only the readings that have one
-        val withHeart = readings.filter { (it.heartRate ?: 0) > 0 }
-        val heart = findViewById<SimpleChartView>(R.id.chartHeart)
-        if (withHeart.isEmpty()) {
-            setText(R.id.textHeartSummary, "--")
-            heart.setLine(FloatArray(0), arrayOf(), getColor(R.color.heart))
-        } else {
-            val values = FloatArray(withHeart.size) { withHeart[it].heartRate!!.toFloat() }
-            setText(R.id.textHeartSummary, "Average %d BPM".format(values.average().toInt()))
-            heart.setLine(ChartData.averageDown(values, MAX_POINTS),
-                arrayOf(clock.format(Date(withHeart.first().timeMillis)), clock.format(Date(withHeart.last().timeMillis))),
-                getColor(R.color.heart))
-        }
+        // Sleep (COL-5): waits for the collar's 1-minute summaries
+        setText(R.id.textSleepSummary, "--")
     }
 
     private fun setText(id: Int, text: String) {

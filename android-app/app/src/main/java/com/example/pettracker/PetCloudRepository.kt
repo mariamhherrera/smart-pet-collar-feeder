@@ -28,6 +28,17 @@ class PetCloudRepository(uid: String) {
         return listener
     }
 
+    /** COL-6: reads the newest collar reading once (used by "Set home" in Settings). */
+    fun loadLatestCollar(onValue: (Map<String, Any>?) -> Unit, onError: (String) -> Unit) {
+        userRoot.child("collar").child("latest").addListenerForSingleValueEvent(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                @Suppress("UNCHECKED_CAST")
+                onValue(snapshot.value as? Map<String, Any>)
+            }
+            override fun onCancelled(error: DatabaseError) { onError(error.message) }
+        })
+    }
+
     /**
      * UI-6.1: Saves a reading in the history with its time, so the graphs can show it later.
      * collar/latest only keeps the newest one. Same time = already saved, so it is skipped.

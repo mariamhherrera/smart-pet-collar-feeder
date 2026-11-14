@@ -19,7 +19,7 @@
     <color name="accent_dark">#C2410C</color>
     <color name="accent_light">#FFEDD5</color>
 
-    <!-- Red: heart rate and log out -->
+    <!-- Red: alerts and log out -->
     <color name="heart">#BA1A1A</color>
     <color name="heart_light">#FFDAD6</color>
 </resources>

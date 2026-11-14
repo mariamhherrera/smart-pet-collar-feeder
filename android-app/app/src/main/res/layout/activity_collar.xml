@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- UI-5 Collar vitals page: connection, battery, heart rate with normal range, activity. -->
+<!-- UI-5 Collar page: connection, battery, location and safe zone (COL-6), sleep (COL-5), activity (COL-2). -->
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
@@ -113,7 +113,7 @@
                     android:layout_marginTop="16dp" />
             </LinearLayout>
 
-            <!-- ===== Heart rate (COL-5.3 fills in the number) ===== -->
+            <!-- ===== Location and safe zone (COL-6, GPS) ===== -->
             <LinearLayout
                 style="@style/Pt.Card"
                 android:layout_width="match_parent"
@@ -128,73 +128,98 @@
 
                     <ImageView
                         style="@style/Pt.Icon"
-                        android:background="@drawable/bg_icon_red"
-                        android:src="@drawable/ic_monitor_heart"
-                        android:tint="@color/heart"
-                        android:contentDescription="Heart rate" />
+                        android:background="@drawable/bg_icon_teal"
+                        android:src="@drawable/ic_location_on"
+                        android:tint="@color/primary"
+                        android:contentDescription="Location" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Heart rate"
+                        android:text="Location"
                         style="@style/Pt.Label"
                         android:layout_marginStart="10dp" />
                 </LinearLayout>
+
+                <!-- "At home" (green), "Outside the safe zone" (red), or "No GPS signal" -->
+                <TextView
+                    android:id="@+id/textLocationStatus"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Waiting for GPS"
+                    style="@style/Pt.Metric"
+                    android:textSize="24sp"
+                    android:layout_marginTop="12dp" />
+
+                <TextView
+                    android:id="@+id/textLocationDetail"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="GPS works outside or near a window"
+                    style="@style/Pt.Body"
+                    android:textSize="12sp"
+                    android:layout_marginTop="2dp" />
+
+                <Button
+                    android:id="@+id/buttonOpenMaps"
+                    android:layout_width="match_parent"
+                    android:layout_height="44dp"
+                    android:minHeight="44dp"
+                    android:text="Open in Maps"
+                    android:textSize="14sp"
+                    android:textColor="@color/primary"
+                    android:background="@drawable/bg_secondary_button"
+                    android:stateListAnimator="@null"
+                    android:enabled="false"
+                    android:alpha="0.5"
+                    android:layout_marginTop="14dp" />
+            </LinearLayout>
+
+            <!-- ===== Sleep last night (COL-5, from the collar's 1-minute summaries) ===== -->
+            <LinearLayout
+                style="@style/Pt.Card"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:layout_marginTop="12dp">
+                    android:gravity="center_vertical">
+
+                    <ImageView
+                        style="@style/Pt.Icon"
+                        android:background="@drawable/bg_icon_teal"
+                        android:src="@drawable/ic_bedtime"
+                        android:tint="@color/primary"
+                        android:contentDescription="Sleep" />
 
                     <TextView
-                        android:id="@+id/textCollarHeartRate"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="--"
-                        style="@style/Pt.Metric"
-                        android:textSize="40sp" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="BPM"
+                        android:text="Sleep last night"
                         style="@style/Pt.Label"
-                        android:textSize="13sp"
-                        android:layout_marginStart="6dp" />
-
-                    <View
-                        android:layout_width="0dp"
-                        android:layout_height="1dp"
-                        android:layout_weight="1" />
-
-                    <!-- UI-5.3: Low (blue), Normal (green) or High (red) -->
-                    <TextView
-                        android:id="@+id/textHeartRateLevel"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text=""
-                        android:textSize="14sp"
-                        android:fontFamily="@font/plus_jakarta_sans_bold" />
+                        android:layout_marginStart="10dp" />
                 </LinearLayout>
 
-                <!-- UI-5.1: the normal range for the pet's species -->
                 <TextView
-                    android:id="@+id/textHeartRateRange"
+                    android:id="@+id/textSleepHours"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Normal for a dog: 60 to 120 BPM"
-                    style="@style/Pt.Body"
-                    android:textSize="12sp"
-                    android:layout_marginTop="4dp" />
+                    android:text="--"
+                    style="@style/Pt.Metric"
+                    android:textSize="24sp"
+                    android:layout_marginTop="12dp" />
 
                 <TextView
+                    android:id="@+id/textSleepDetail"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Most accurate while your pet is resting"
+                    android:text="Waiting for sleep data from the collar"
                     style="@style/Pt.Body"
-                    android:textSize="12sp" />
+                    android:textSize="12sp"
+                    android:layout_marginTop="2dp" />
             </LinearLayout>
 
             <!-- ===== Activity right now (COL-2.2 fills in the label) ===== -->

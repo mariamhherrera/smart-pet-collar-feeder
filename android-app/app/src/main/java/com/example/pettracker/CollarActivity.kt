@@ -20,8 +20,9 @@ import java.util.Date
  * Main way: the collar sends to Firebase over Wi-Fi (COM-3.2), this page listens to collar/latest.
  * Backup: "Connect by Bluetooth" reads the collar directly and writes the readings to Firebase,
  * so Home and History see them the same way.
- * Heart rate is coloured with the normal range for the pet's species (UI-5.1, UI-5.3).
- * The minutes per activity show "--" until COL-2.3.
+ * Location and safe zone (COL-6): where the collar is, and whether it is inside the safe zone
+ * set in Settings. Sleep (COL-5) and the minutes per activity (COL-2.3) show "--" until the
+ * collar sends its 1-minute summaries.
  */
 class CollarActivity : Activity(), BluetoothSppClient.Listener {
 
@@ -29,7 +30,7 @@ class CollarActivity : Activity(), BluetoothSppClient.Listener {
     private var cloud: PetCloudRepository? = null
     private var collarListener: ValueEventListener? = null
     private var collarClient: BluetoothSppClient? = null
-    private var petSpecies: String? = null
+    private var lastLocation: CollarReading? = null
 
     private lateinit var textStatus: TextView
     private lateinit var textMotion: TextView
@@ -54,6 +55,18 @@ class CollarActivity : Activity(), BluetoothSppClient.Listener {
         textStatus = findViewById(R.id.textCollarStatus)
         textMotion = findViewById(R.id.textCollarMotion)
 
+        // Opens Google Maps (or any maps app) at the collar's last position. No API key needed.
+        findViewById<Button>(R.id.buttonOpenMaps).setOnClickListener {
+            val spot = lastLocation ?: return@setOnClickListener
+            val place = "${spot.latitude},${spot.longitude}"
+            val uri = android.net.Uri.parse("geo:$place?q=$place(Pet)")
+            try {
+                startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, uri))
+            } catch (e: android.content.ActivityNotFoundException) {
+                android.widget.Toast.makeText(this, "No maps app on this phone", android.widget.Toast.LENGTH_SHORT).show()
+            }
+        }
+
         // Bluetooth backup, for when the collar has no Wi-Fi
         findViewById<Button>(R.id.buttonSearchCollar).setOnClickListener {
             if (hasBluetoothPermissions()) startBluetoothBackup()
@@ -64,8 +77,6 @@ class CollarActivity : Activity(), BluetoothSppClient.Listener {
     override fun onResume() {
         super.onResume()
         val user = auth.currentUser ?: return
-        petSpecies = DatabaseHelper(this).getPetProfile(user.uid)?.species
-        findViewById<TextView>(R.id.textHeartRateRange).text = HeartRateRange.rangeText(petSpecies)
 
         val cloud = PetCloudRepository(user.uid)
         this.cloud = cloud
@@ -74,6 +85,7 @@ class CollarActivity : Activity(), BluetoothSppClient.Listener {
             onError = { message -> runOnUiThread { textStatus.text = "Firebase error: $message" } }
         )
         clockHandler.post(refreshStatus)
+        showLocation()
     }
 
     override fun onPause() {
@@ -93,21 +105,9 @@ class CollarActivity : Activity(), BluetoothSppClient.Listener {
         showOnline()
         cloud?.saveReadingToHistory(reading) // UI-6.1
 
-        // Heart rate, coloured low / normal / high
-        val number = findViewById<TextView>(R.id.textCollarHeartRate)
-        val level = findViewById<TextView>(R.id.textHeartRateLevel)
-        val bpm = reading.heartRate
-        if (bpm != null && bpm > 0) {
-            val result = HeartRateRange.levelOf(bpm, petSpecies)
-            number.text = bpm.toString()
-            number.setTextColor(result.color)
-            level.text = result.label
-            level.setTextColor(result.color)
-        } else {
-            number.text = "--"
-            number.setTextColor(getColor(R.color.text_primary))
-            level.text = ""
-        }
+        // Location and safe zone (COL-6)
+        if (reading.hasLocation()) lastLocation = reading
+        showLocation()
 
         // Battery, once the collar sends it
         findViewById<TextView>(R.id.textCollarBattery).text =
@@ -119,6 +119,40 @@ class CollarActivity : Activity(), BluetoothSppClient.Listener {
             reading.ax, reading.ay, reading.az,
             android.text.format.DateFormat.getTimeFormat(this).format(Date(lastReadingTime))
         )
+    }
+
+    /** "At home" / "Outside the safe zone" / "No GPS signal", with the distance and time. */
+    private fun showLocation() {
+        val status = findViewById<TextView>(R.id.textLocationStatus)
+        val detail = findViewById<TextView>(R.id.textLocationDetail)
+        val maps = findViewById<Button>(R.id.buttonOpenMaps)
+        val spot = lastLocation
+        maps.isEnabled = spot != null
+        maps.alpha = if (spot != null) 1f else 0.5f
+        if (spot == null) {
+            status.text = "No GPS signal"
+            status.setTextColor(getColor(R.color.text_primary))
+            detail.text = "GPS works outside or near a window"
+            return
+        }
+
+        val settings = SettingsStorage(this)
+        val seen = "Last seen " + android.text.format.DateFormat.getTimeFormat(this).format(Date(spot.timeMillis))
+        when (SafeZone.status(spot, settings.homeLatitude, settings.homeLongitude, settings.safeRadius)) {
+            SafeZone.Status.INSIDE, SafeZone.Status.OUTSIDE -> {
+                val meters = SafeZone.distanceMeters(settings.homeLatitude!!, settings.homeLongitude!!,
+                    spot.latitude!!, spot.longitude!!)
+                val inside = meters <= settings.safeRadius
+                status.text = if (inside) "At home" else "Outside the safe zone"
+                status.setTextColor(if (inside) 0xFF15803D.toInt() else 0xFFDC2626.toInt())
+                detail.text = "$seen · ${SafeZone.formatDistance(meters)} from home"
+            }
+            else -> {
+                status.text = "Location found"
+                status.setTextColor(getColor(R.color.text_primary))
+                detail.text = "$seen · Set home in Settings to use the safe zone"
+            }
+        }
     }
 
     private fun showOnline() {
@@ -150,7 +184,7 @@ class CollarActivity : Activity(), BluetoothSppClient.Listener {
         val reading = CollarReading(
             System.currentTimeMillis(),
             motion.ax, motion.ay, motion.az, motion.gx, motion.gy, motion.gz,
-            heartRate = motion.heartRateBpm, battery = null
+            battery = null
         )
         // Through Firebase, so every page sees it the same way. The page updates from the listener.
         cloud?.writeLatestFromBluetooth(reading)

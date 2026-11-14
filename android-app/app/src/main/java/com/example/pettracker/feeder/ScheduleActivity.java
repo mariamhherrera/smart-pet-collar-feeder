@@ -13,9 +13,14 @@ import com.example.pettracker.BottomNav;
 import com.example.pettracker.MealLimit;
 import com.example.pettracker.SettingsStorage;
 import com.example.pettracker.R;
+import com.example.pettracker.PetCloudRepository;
+import com.google.firebase.auth.FirebaseAuth;
 import com.example.pettracker.bluetooth.FeederConnection;
 import com.example.pettracker.bluetooth.FeederMessage;
 import com.example.pettracker.bluetooth.FeederReply;
+import org.jetbrains.annotations.NotNull;
+import java.util.Locale;
+import kotlin.Unit;
 
 /**FD-1.1: Screen where the owner picks the feeding time and portion.
  */
@@ -30,6 +35,7 @@ public class ScheduleActivity extends Activity {
     private TextView feederStatusText;
     // UI-8.3: meals the feeder says it gave today ("OK FED 2" = 2), -1 = not known yet
     private int feederMealsToday = -1;
+    private boolean bluetoothScheduleBackupRequired = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -59,11 +65,15 @@ public class ScheduleActivity extends Activity {
             @Override
             public void onConnectionChanged(boolean connected) {
                 showFeederStatus(connected);
-                if (connected) sendTimeAndSchedule();
+                if (connected) {
+                    // UI-8.3: the feeder also needs the meal limit for scheduled meals
+                    feeder.send(FeederMessage.limitCommand(new SettingsStorage(ScheduleActivity.this).getMealLimit()));
+                    if (bluetoothScheduleBackupRequired) sendTimeAndSchedule();
+                }
             }
 
             @Override
-            public void onReply(FeederReply reply) {
+            public void onReply(@NotNull FeederReply reply) {
                 if (reply instanceof FeederReply.TimeSet) return; // nothing to tell the owner
                 if (reply instanceof FeederReply.LimitSet) return;
                 if (reply instanceof FeederReply.Fed) feederMealsToday = ((FeederReply.Fed) reply).getFeedsToday();
@@ -113,8 +123,9 @@ public class ScheduleActivity extends Activity {
 
     /** Green "Feeder connected" or red "Feeder not connected" at the top of the screen. */
     private void showFeederStatus(boolean connected) {
-        feederStatusText.setText(connected ? "Feeder connected" : "Feeder not connected");
-        feederStatusText.setTextColor(connected ? 0xFF15803D : 0xFFDC2626);
+        // Commands go through Firebase; Bluetooth is only the backup
+        feederStatusText.setText(connected ? "Bluetooth backup connected" : "Using Firebase (Bluetooth backup off)");
+        feederStatusText.setTextColor(connected ? 0xFF15803D : 0xFF475569);
     }
 
     /**FD-1.2: If a schedule was saved before, show it on the screen.
@@ -140,26 +151,45 @@ public class ScheduleActivity extends Activity {
         storage.save(hour, minute, portion);
         showCurrentSchedule(hour, minute, portion);
 
-        // FD-1.3: send the schedule to the feeder. If it is not connected right now,
-        // sendTimeAndSchedule() sends the saved schedule as soon as it connects.
-        if (feeder.isConnected()) {
-            Toast.makeText(this, "Schedule saved", Toast.LENGTH_SHORT).show();
-            sendTimeAndSchedule();
-        } else {
-            Toast.makeText(this, "Schedule saved. It will be sent when the feeder connects.",
-                    Toast.LENGTH_LONG).show();
+        String uid = FirebaseAuth.getInstance().getUid();
+        if (uid == null) {
+            bluetoothScheduleBackupRequired = true;
+            if (feeder.isConnected()) {
+                sendTimeAndSchedule();
+                Toast.makeText(this, "Firebase sign-in unavailable; schedule sent by Bluetooth backup", Toast.LENGTH_LONG).show();
+            } else {
+                Toast.makeText(this, "Schedule saved locally, but Firebase is not signed in", Toast.LENGTH_LONG).show();
+            }
+            return;
         }
+
+        new PetCloudRepository(uid).saveSchedule(hour, minute, portion, (id, error) -> {
+            runOnUiThread(() -> {
+                if (error == null) {
+                    bluetoothScheduleBackupRequired = false;
+                    Toast.makeText(this, "Schedule saved to Firebase", Toast.LENGTH_SHORT).show();
+                } else {
+                    bluetoothScheduleBackupRequired = true;
+                    if (feeder.isConnected()) {
+                        sendTimeAndSchedule();
+                        Toast.makeText(this, "Firebase unavailable; schedule sent by Bluetooth backup", Toast.LENGTH_LONG).show();
+                    } else {
+                        Toast.makeText(this, "Schedule saved locally; Firebase error: " + error, Toast.LENGTH_LONG).show();
+                    }
+                }
+            });
+            return Unit.INSTANCE;
+        });
     }
 
     private void showCurrentSchedule(int hour, int minute, int portion) {
-        currentScheduleText.setText("Saved: " + formatTime(hour, minute)
-                + ", " + portionName(portion) + " portion");
+        currentScheduleText.setText(String.format(Locale.getDefault(), "Saved: %s, %s portion", formatTime(hour, minute), portionName(portion)));
     }
 
     /**Time written as 07:30 instead of 7:30.
      */
     private String formatTime(int hour, int minute) {
-        return String.format("%02d:%02d", hour, minute);
+        return String.format(Locale.getDefault(), "%02d:%02d", hour, minute);
     }
 
     /**Turns the selected button into 1 (small), 2 (medium) or 3 (large).
@@ -186,24 +216,65 @@ public class ScheduleActivity extends Activity {
     }
 
     // FD-2.1: ask first, so the pet doesn't get an extra meal by accident
+    /**
+     * UI-8.3: check the daily meal limit from Settings before Feed now.
+     * Counts today's meals from Firebase. Without Firebase, uses what the feeder said over Bluetooth.
+     */
     private void onFeedNowClicked() {
-        // UI-8.3: stop at the daily meal limit from Settings
         int limit = new SettingsStorage(this).getMealLimit();
-        if (!MealLimit.canFeed(Math.max(feederMealsToday, 0), limit)) {
-            Toast.makeText(this, "Daily limit reached (" + feederMealsToday + " of " + limit
+        String uid = FirebaseAuth.getInstance().getUid();
+        if (uid == null) {
+            checkLimitThenConfirm(Math.max(feederMealsToday, 0), limit);
+            return;
+        }
+        long now = System.currentTimeMillis();
+        new PetCloudRepository(uid).loadFeedingsBetween(MealLimit.startOfDay(now), now,
+                rows -> {
+                    int meals = MealLimit.mealsToday(rows, now);
+                    runOnUiThread(() -> checkLimitThenConfirm(meals, limit));
+                    return Unit.INSTANCE;
+                },
+                error -> {
+                    // Could not count today's meals: fall back to what the feeder told us
+                    runOnUiThread(() -> checkLimitThenConfirm(Math.max(feederMealsToday, 0), limit));
+                    return Unit.INSTANCE;
+                });
+    }
+
+    private void checkLimitThenConfirm(int mealsToday, int limit) {
+        if (!MealLimit.canFeed(mealsToday, limit)) {
+            Toast.makeText(this, "Daily limit reached (" + mealsToday + " of " + limit
                     + " meals). You can change it in Settings.", Toast.LENGTH_LONG).show();
             return;
         }
         int portion = getFeedNowPortion();
         new AlertDialog.Builder(this, android.R.style.Theme_Material_Light_Dialog_Alert)
                 .setTitle("Feed now?")
-                .setMessage("This gives your pet one " + portionName(portion).toLowerCase() + " portion right away.")
+                .setMessage("This gives your pet one " + portionName(portion).toLowerCase(Locale.getDefault()) + " portion right away.")
                 .setPositiveButton("Feed", (dialog, which) -> {
-                    // FD-2.2: send the command to the feeder, e.g. FEED,2
-                    if (feeder.isConnected()) {
-                        feeder.send(FeederMessage.feedCommand(portion));
+                    String uid = FirebaseAuth.getInstance().getUid();
+                    if (uid != null) {
+                        new PetCloudRepository(uid).createFeedNow(portion, (commandId, error) -> {
+                            runOnUiThread(() -> {
+                                if (error != null) {
+                                    if (feeder.isConnected()) {
+                                        feeder.send(FeederMessage.feedCommand(portion));
+                                        Toast.makeText(this, "Firebase unavailable; Feed Now sent by Bluetooth backup", Toast.LENGTH_LONG).show();
+                                    } else {
+                                        Toast.makeText(this, "Firebase feeding record failed: " + error, Toast.LENGTH_LONG).show();
+                                    }
+                                } else {
+                                    Toast.makeText(this, "Feed Now command saved to Firebase", Toast.LENGTH_SHORT).show();
+                                }
+                            });
+                            return Unit.INSTANCE;
+                        });
                     } else {
-                        Toast.makeText(this, "Feeder not connected", Toast.LENGTH_SHORT).show();
+                        if (feeder.isConnected()) {
+                            feeder.send(FeederMessage.feedCommand(portion));
+                        } else {
+                            Toast.makeText(this, "Firebase is not signed in and feeder is not connected", Toast.LENGTH_SHORT).show();
+                        }
                     }
                 })
                 .setNegativeButton("Cancel", null)
@@ -217,7 +288,4 @@ public class ScheduleActivity extends Activity {
         if (id == R.id.feedNowLarge) return 3;
         return 2;
     }
-
-
 }
-

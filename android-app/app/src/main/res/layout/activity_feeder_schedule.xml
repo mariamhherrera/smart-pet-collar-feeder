@@ -62,7 +62,7 @@
                         android:id="@+id/textFeederStatus"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="Searching for the feeder…"
+                        android:text="Using Firebase (Bluetooth backup off)"
                         android:textSize="13sp"
                         android:textColor="@color/text_secondary"
                         android:fontFamily="@font/plus_jakarta_sans_semibold"

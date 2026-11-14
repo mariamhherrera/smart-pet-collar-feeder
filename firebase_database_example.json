@@ -20,7 +20,10 @@
             "y": -0.3,
             "z": 0.1
           },
-          "receivedAt": 1760000000000
+          "receivedAt": 1760000000000,
+          "heartRateBpm": 92,
+          "batteryVoltage": 3.95,
+          "batteryPercent": 72
         },
         "readings": {
           "{pushId}": {
@@ -35,7 +38,10 @@
               "y": -0.3,
               "z": 0.1
             },
-            "receivedAt": 1760000000000
+            "receivedAt": 1760000000000,
+            "heartRateBpm": 92,
+            "batteryVoltage": 3.95,
+            "batteryPercent": 72
           }
         }
       },
@@ -61,6 +67,22 @@
             "resultType": "Fed",
             "displayText": "Food given (1 meal today)",
             "receivedAt": 1760000000000
+          }
+        },
+        "feedings": {
+          "{pushId-feed-now}": {
+            "time": 1760000000000,
+            "portion": 2,
+            "status": "pending",
+            "source": "feed_now",
+            "commandId": "{commandId}"
+          },
+          "{pushId-scheduled}": {
+            "time": 1760040000000,
+            "scheduledTime": 1760040000000,
+            "portion": 1,
+            "status": "scheduled",
+            "source": "scheduled"
           }
         }
       },

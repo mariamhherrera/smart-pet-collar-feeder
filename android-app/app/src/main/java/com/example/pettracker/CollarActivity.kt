@@ -150,7 +150,7 @@ class CollarActivity : Activity(), BluetoothSppClient.Listener {
         val reading = CollarReading(
             System.currentTimeMillis(),
             motion.ax, motion.ay, motion.az, motion.gx, motion.gy, motion.gz,
-            heartRate = null, battery = null
+            heartRate = motion.heartRateBpm, battery = null
         )
         // Through Firebase, so every page sees it the same way. The page updates from the listener.
         cloud?.writeLatestFromBluetooth(reading)

@@ -108,6 +108,16 @@ class HomeActivity : Activity() {
         showPetInformation()
         attachCloudListeners()
         clockHandler.post(refreshCollarStatus)
+        if (hasBluetoothPermissions()) startFeeder() // Bluetooth backup for Feed Now
+    }
+
+    /** True if Bluetooth may be used. The Collar page asks for it; Home only checks. */
+    private fun hasBluetoothPermissions(): Boolean {
+        return if (android.os.Build.VERSION.SDK_INT >= 31) {
+            checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        } else {
+            checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        }
     }
 
     override fun onPause() {
@@ -126,12 +136,9 @@ class HomeActivity : Activity() {
 
     /** Starts connecting to the feeder in the background. */
     private fun startFeeder() {
-        if (feederLink != null) return
+        if (feederLink != null || !hasBluetoothPermissions()) return
         val adapter = getSystemService(BluetoothManager::class.java)?.adapter
-        if (adapter == null) {
-            showFeederStatus("This phone has no Bluetooth", false)
-            return
-        }
+        if (adapter == null || !adapter.isEnabled) return // Firebase still works without it
         val connector = ClassicBluetoothConnector(this, adapter, FeederMessage.DEVICE_NAME)
         feederConnectionNumber++
         // No silence timeout: the feeder only talks when it answers a command
@@ -147,18 +154,22 @@ class HomeActivity : Activity() {
         feederConnectionNumber++ // from now on, messages from the old connection are ignored
     }
 
-    /** Called when Feed Now is tapped: sends FEED to the feeder. */
-    private fun feedNow() {
-        val link = feederLink ?: return
+    /** Called only when the Firebase Feed Now write fails: sends Feed Now by Bluetooth instead. */
+    private fun feedNow(portion: Int) {
+        val link = feederLink ?: run {
+            setFeedNowEnabled(true)
+            showFeederStatus("Could not reach the feeder (Firebase and Bluetooth backup are off)", false)
+            return
+        }
         setFeedNowEnabled(false)              // one tap = one command, no double taps
-        showFeederStatus("Sending…", true)
+        showFeederStatus("Firebase unavailable · sending by Bluetooth backup…", true)
 
         feederSender.execute {
-            val sent = link.send(FeederMessage.FEED)
+            val sent = link.send(FeederMessage.feedCommand(portion))
             runOnUiThread {
                 if (!sent) showFeederStatus("Could not reach the feeder", false)
                 // Same 3 seconds as the feeder's cooldown, then the button works again
-                buttonFeedNow.postDelayed({ setFeedNowEnabled(feederConnected) }, FEED_LOCK_MS)
+                buttonFeedNow.postDelayed({ setFeedNowEnabled(true) }, FEED_LOCK_MS)
             }
         }
     }
@@ -170,15 +181,8 @@ class HomeActivity : Activity() {
             runOnUiThread {
                 if (number != feederConnectionNumber) return@runOnUiThread
                 feederConnected = state == LinkState.CONNECTED
-                setFeedNowEnabled(feederConnected)
-                if (feederConnected) sendTimeAndSchedule()
-                when (state) {
-                    LinkState.CONNECTED -> showFeederStatus("Feeder connected", true)
-                    LinkState.SEARCHING -> showFeederStatus("Searching for the feeder…", false)
-                    LinkState.CONNECTING -> showFeederStatus("Connecting to the feeder…", false)
-                    LinkState.RECONNECTING -> showFeederStatus("Feeder lost. Reconnecting…", false)
-                    LinkState.STOPPED -> showFeederStatus("Feeder disconnected", false)
-                }
+                // Firebase sends the schedule now; Bluetooth only gives the feeder its clock and meal limit
+                if (feederConnected) sendTimeAndLimit()
             }
         }
 
@@ -197,21 +201,15 @@ class HomeActivity : Activity() {
     }
 
     /**
-     * FD-1.3: Gives the feeder the current time and the saved schedule, every time it connects.
-     * The feeder forgets the time when it restarts, and needs it to feed on schedule.
+     * Over the Bluetooth backup: gives the feeder the current time and the meal limit (UI-8.3).
+     * The feeder forgets the time when it restarts, and needs the limit for scheduled meals.
      */
-    private fun sendTimeAndSchedule() {
+    private fun sendTimeAndLimit() {
         val link = feederLink ?: return
-        val storage = ScheduleStorage(this)
-        val schedule =
-            if (storage.hasSchedule())
-                FeederMessage.scheduleCommand(storage.getHour(), storage.getMinute(), storage.getPortion())
-            else null
-        val limit = FeederMessage.limitCommand(SettingsStorage(this).mealLimit) // UI-8.3
+        val limit = FeederMessage.limitCommand(SettingsStorage(this).mealLimit)
         feederSender.execute {
             link.send(FeederMessage.timeCommandNow())
             link.send(limit)
-            if (schedule != null) link.send(schedule)
         }
     }
 
@@ -409,22 +407,27 @@ class HomeActivity : Activity() {
         }
         textFeeder.setTextColor(getColor(R.color.text_secondary))
 
-        buttonFeedNow.isEnabled = false
+        setFeedNowEnabled(false)
         textFeeder.text = "Sending Feed Now…"
-        cloud?.createFeedNow(portion) { commandId, error ->
+        cloud?.createFeedNow(portion) { _, error ->
             runOnUiThread {
-                // Same 3 seconds as the feeder's cooldown, so one tap = one meal
-                buttonFeedNow.postDelayed({ buttonFeedNow.isEnabled = true }, FEED_LOCK_MS)
                 if (error != null) {
-                    textFeeder.text = "Could not send Feed Now: $error"
                     cloud?.addAlert("command_error", error)
+                    if (feederConnected) feedNow(portion) else {
+                        setFeedNowEnabled(true)
+                        showFeederStatus("Could not send Feed Now: $error. Bluetooth backup is off.", false)
+                    }
                 } else {
+                    // Same 3 seconds as the feeder's cooldown, so one tap = one meal
+                    buttonFeedNow.postDelayed({ setFeedNowEnabled(true) }, FEED_LOCK_MS)
                     textFeeder.text = "Feed Now sent. Waiting for the feeder to confirm."
                 }
             }
         } ?: run {
-            buttonFeedNow.isEnabled = true
-            textFeeder.text = "Firebase is not connected. Please sign in again."
+            if (feederConnected) feedNow(portion) else {
+                setFeedNowEnabled(true)
+                showFeederStatus("Firebase is not connected and Bluetooth backup is off.", false)
+            }
         }
     }
 

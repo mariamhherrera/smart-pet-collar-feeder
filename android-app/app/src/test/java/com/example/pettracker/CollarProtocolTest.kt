@@ -13,6 +13,12 @@ class CollarProtocolTest {
         assertEquals(3.0, parsed.gz, 0.0001)
     }
 
+    @Test fun parsesOptionalHeartRate() {
+        val parsed = CollarProtocol.parseMotion("1.250,0.1,0.2,0.3,1.0,2.0,3.0,92")
+        requireNotNull(parsed)
+        assertEquals(92, parsed.heartRateBpm)
+    }
+
     @Test fun ignoresHeaderAndInvalidLines() {
         assertNull(CollarProtocol.parseMotion("time_s,x_g,y_g,z_g,gx_deg_s,gy_deg_s,gz_deg_s"))
         assertNull(CollarProtocol.parseMotion("Sensor reading failed!"))

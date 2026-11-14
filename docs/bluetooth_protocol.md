@@ -6,9 +6,9 @@
 - UTF-8 text, one message per line, terminated by `\\n`
 
 ## Collar telemetry (current firmware contract)
-The collar currently sends seven comma-separated numeric fields:
+The collar sends seven comma-separated motion fields. A collar with a supported heart-rate sensor may append an eighth integer BPM field (backwards-compatible):
 
-`time_s,x_g,y_g,z_g,gx_deg_s,gy_deg_s,gz_deg_s`
+`time_s,x_g,y_g,z_g,gx_deg_s,gy_deg_s,gz_deg_s[,heart_rate_bpm]`
 
 Example:
 
@@ -16,7 +16,7 @@ Example:
 
 Units: seconds, acceleration in g, angular velocity in degrees/second.
 The CSV header is printed to the USB serial console only; Bluetooth sends data records.
-The Android app ignores header/status lines and parses seven-value records.
+The Android app ignores header/status lines and parses seven-value records, or eight-value records when BPM is available. BPM must be in the 30–240 range; older seven-column firmware remains supported.
 
 ## Feeder commands (FD-2.2)
 - Feeder device name: `PetFeeder_ESP32`

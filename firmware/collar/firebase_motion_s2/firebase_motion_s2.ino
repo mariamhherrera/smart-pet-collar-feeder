@@ -17,6 +17,11 @@
 
 const uint8_t MPU_ADDR = 0x68;
 
+const uint8_t BATTERY_PIN = A13;
+const float BATTERY_DIVIDER_RATIO = 2.0f;
+const float BATTERY_EMPTY_V = 3.30f;
+const float BATTERY_FULL_V = 4.20f;
+
 const uint32_t SAMPLE_INTERVAL_MS = 20;
 const uint32_t UPLOAD_INTERVAL_MS = 5000;
 const uint32_t AUTH_INTERVAL_MS = 3000000; // 50 minutes
@@ -38,6 +43,16 @@ uint32_t lastAuthMs = 0;
 
 bool sensorReady = false;
 bool haveReading = false;
+
+float readBatteryVoltage() {
+  return (analogReadMilliVolts(BATTERY_PIN) / 1000.0f) * BATTERY_DIVIDER_RATIO;
+}
+
+int batteryPercentFromVoltage(float voltage) {
+  int percent = (int)roundf((voltage - BATTERY_EMPTY_V) * 100.0f /
+                            (BATTERY_FULL_V - BATTERY_EMPTY_V));
+  return constrain(percent, 0, 100);
+}
 
 // ---------- MOTION SENSOR ----------
 
@@ -275,6 +290,10 @@ int uploadMotion(const MotionReading &r) {
 
   data["deviceTimeSeconds"] = r.deviceTimeSeconds;
 
+  float batteryVoltage = readBatteryVoltage();
+  data["batteryVoltage"] = batteryVoltage;
+  data["batteryPercent"] = batteryPercentFromVoltage(batteryVoltage);
+
   JsonObject accel =
     data["accelerationG"].to<JsonObject>();
 
@@ -325,6 +344,9 @@ void setup() {
   delay(1500);
 
   Serial.println("ELEC 390 - Continuous Motion + Firebase");
+
+  analogReadResolution(12);
+  pinMode(BATTERY_PIN, INPUT);
 
   sensorReady = initializeSensor();
 

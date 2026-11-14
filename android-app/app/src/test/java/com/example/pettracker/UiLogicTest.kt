@@ -106,10 +106,11 @@ class UiLogicTest {
 
     @Test
     fun readsBluetoothBackupFormat() {
-        val row = mapOf("ax" to 0.0, "ay" to 0L, "az" to "1.0", "time" to 5L, "heartRate" to 90L)
+        val row = mapOf("ax" to 0.0, "ay" to 0L, "az" to "1.0", "time" to 5L, "heartRateBpm" to 90L, "batteryPercent" to 77)
         val r = CollarReading.fromMap(row)!!
         assertEquals(1.0, r.az, 1e-9)
         assertEquals(90, r.heartRate)
+        assertEquals(77, r.battery)
         assertEquals(0.0, r.movement(), 1e-9) // still: only gravity
     }
 
@@ -124,8 +125,8 @@ class UiLogicTest {
         val r = CollarReading(1234L, 0.1, 0.2, 0.9, 0.0, 0.0, 0.0, heartRate = 80, battery = null)
         val row = r.toHistoryRow()
         assertEquals(1234L, row["time"])
-        assertEquals(80, row["heartRate"])
-        assertFalse(row.containsKey("battery"))
+        assertEquals(80, row["heartRateBpm"])
+        assertFalse(row.containsKey("batteryPercent"))
     }
 
     // ---------- UI-8.3 meal limit sent to the feeder ----------

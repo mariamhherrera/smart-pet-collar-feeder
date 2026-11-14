@@ -7,7 +7,7 @@ import kotlin.math.sqrt
  * One collar reading from Firebase, whichever way it was written:
  *  - the ESP32-S2 (COM-3.2) writes {accelerationG: {x,y,z}, gyroscopeDegreesPerSecond: {x,y,z}, receivedAt}
  *  - the Bluetooth backup writes flat {ax, ay, az, gx, gy, gz, time}
- * heartRate and battery are read too if the collar sends them later (COL-5).
+ * heartRateBpm and batteryPercent are read too when the collar sends them.
  */
 data class CollarReading(
     val timeMillis: Long,
@@ -26,8 +26,8 @@ data class CollarReading(
             "ax" to ax, "ay" to ay, "az" to az,
             "gx" to gx, "gy" to gy, "gz" to gz
         )
-        heartRate?.let { row["heartRate"] = it }
-        battery?.let { row["battery"] = it }
+        heartRate?.let { row["heartRateBpm"] = it }
+        battery?.let { row["batteryPercent"] = it }
         return row
     }
 
@@ -47,8 +47,9 @@ data class CollarReading(
             val gz = number(gyro?.get("z") ?: row["gz"]) ?: 0.0
 
             val time = number(row["receivedAt"] ?: row["time"] ?: row["timestamp"])?.toLong() ?: 0L
-            val heartRate = number(row["heartRate"])?.toInt()
-            val battery = number(row["battery"])?.toInt()
+            // Field names used by the collar firmware (heartRateBpm, batteryPercent), or the short ones
+            val heartRate = number(row["heartRateBpm"] ?: row["heartRate"])?.toInt()
+            val battery = number(row["batteryPercent"] ?: row["battery"])?.toInt()
 
             return CollarReading(time, ax, ay, az, gx, gy, gz, heartRate, battery)
         }

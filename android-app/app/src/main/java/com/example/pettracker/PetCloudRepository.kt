@@ -48,7 +48,8 @@ class PetCloudRepository(uid: String) {
         val row = reading.toHistoryRow().toMutableMap()
         row["receivedAt"] = reading.timeMillis
         row["source"] = "bluetooth_backup"
-        userRoot.child("collar").child("latest").setValue(row)
+        // updateChildren, not setValue: keeps fields the Wi-Fi collar wrote (like batteryPercent)
+        userRoot.child("collar").child("latest").updateChildren(row)
     }
 
     /** History for the graphs (UI-6.2): the last [count] saved readings, oldest first. */
@@ -109,6 +110,8 @@ class PetCloudRepository(uid: String) {
 
     fun collarReadingsRef(): DatabaseReference =
         userRoot.child("collar").child("readings")
+    fun collarLatestRef(): DatabaseReference =
+        userRoot.child("collar").child("latest")
 
     fun listenToCollarStatus(onValue: (Map<String, Any>?) -> Unit,
                              onError: (String) -> Unit): ValueEventListener =
@@ -175,6 +178,8 @@ class PetCloudRepository(uid: String) {
         }
         val command = mapOf(
             "type" to "FEED_NOW",
+            "command" to "FEED",
+            "source" to "manual",
             "portion" to portion,
             "status" to "pending",
             "createdAt" to now,
@@ -230,6 +235,8 @@ class PetCloudRepository(uid: String) {
         )
         val command = mapOf(
             "type" to "SET_SCHEDULE",
+            "command" to "SCHEDULE",
+            "source" to "app",
             "hour" to hour,
             "minute" to minute,
             "portion" to portion,
@@ -245,6 +252,12 @@ class PetCloudRepository(uid: String) {
             )
         ).addOnSuccessListener { onComplete(commandId, null) }
             .addOnFailureListener { onComplete(null, it.localizedMessage ?: "Firebase write failed") }
+    }
+
+    fun updateFeedingStatus(feedingId: String, status: String) {
+        userRoot.child("feeder").child("feedings").child(feedingId).updateChildren(
+            mapOf("status" to status, "updatedAt" to System.currentTimeMillis())
+        )
     }
 
     fun addAlert(type: String, message: String) {

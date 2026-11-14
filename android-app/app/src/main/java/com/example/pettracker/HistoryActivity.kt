@@ -2,22 +2,22 @@ package com.example.pettracker
 
 import android.app.Activity
 import android.os.Bundle
+import android.widget.RadioGroup
 import android.widget.TextView
+import com.example.pettracker.HistoryRange.Range
 import com.example.pettracker.charts.ChartData
 import com.example.pettracker.charts.SimpleChartView
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.database.ValueEventListener
 import java.text.DateFormat
-import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
-import java.util.Locale
 
 /**
  * UI-6 History graphs page.
- *  - Meals, last 7 days: from the feeding history in Firebase (updates live).
+ *  - Week / Month / Year (UI-6.2): meals and activity graphs for the chosen range.
+ *    Activity comes from the day summaries saved with each reading (UI-6.1).
  *  - Pick a day (UI-6.1): loads that day's saved readings and meals by date,
- *    then shows its movement graph (UI-6.2). Sleep (COL-5) fills in once the collar sends
+ *    then shows its movement graph. Sleep (COL-5) fills in once the collar sends
  *    its 1-minute summaries.
  * Readings are saved with their time while the app is open (Home or Collar page).
  */
@@ -25,7 +25,9 @@ class HistoryActivity : Activity() {
 
     private val auth = FirebaseAuth.getInstance()
     private var cloud: PetCloudRepository? = null
-    private var feedingsListener: ValueEventListener? = null
+
+    /** The range shown in the meals and activity graphs. */
+    private var range = Range.WEEK
 
     /** Midnight of the day shown in the movement and sleep graphs. */
     private var selectedDay = MealLimit.startOfDay(System.currentTimeMillis())
@@ -35,9 +37,20 @@ class HistoryActivity : Activity() {
         setContentView(R.layout.activity_history)
         BottomNav.setUp(this, BottomNav.HISTORY)
 
-        findViewById<SimpleChartView>(R.id.chartMeals).emptyText = "No meals recorded yet"
+        findViewById<SimpleChartView>(R.id.chartMeals).emptyText = "No meals in this period"
+        findViewById<SimpleChartView>(R.id.chartActivity).emptyText = "Not enough collar data for this period"
         findViewById<SimpleChartView>(R.id.chartMovement).emptyText = "No collar readings on this day"
         findViewById<SimpleChartView>(R.id.chartSleep).emptyText = "No sleep data yet (coming with COL-5)"
+
+        // Week / Month / Year buttons
+        findViewById<RadioGroup>(R.id.rangeGroup).setOnCheckedChangeListener { _, checkedId ->
+            range = when (checkedId) {
+                R.id.rangeMonth -> Range.MONTH
+                R.id.rangeYear -> Range.YEAR
+                else -> Range.WEEK
+            }
+            loadRange()
+        }
 
         findViewById<android.view.View>(R.id.buttonPrevDay).setOnClickListener { moveDay(-1) }
         findViewById<android.view.View>(R.id.buttonNextDay).setOnClickListener { moveDay(1) }
@@ -46,21 +59,70 @@ class HistoryActivity : Activity() {
     override fun onResume() {
         super.onResume()
         val user = auth.currentUser ?: return
-        val cloud = PetCloudRepository(user.uid)
-        this.cloud = cloud
-
-        feedingsListener = cloud.listenToFeedings(FEEDINGS_TO_LOAD,
-            onValue = { rows -> runOnUiThread { showWeekOfMeals(rows) } },
-            onError = { message -> runOnUiThread { setText(R.id.textMealsSummary, "Error: $message") } }
-        )
+        cloud = PetCloudRepository(user.uid)
+        loadRange()
         loadDay()
     }
 
     override fun onPause() {
         super.onPause()
-        feedingsListener?.let { cloud?.removeFeedingsListener(FEEDINGS_TO_LOAD, it) }
-        feedingsListener = null
         cloud = null
+    }
+
+    /** UI-6.2: loads the meals and the day summaries for the chosen range, then draws both graphs. */
+    private fun loadRange() {
+        val cloud = cloud ?: return
+        val range = this.range
+        val now = System.currentTimeMillis()
+        val start = HistoryRange.rangeStart(range, now)
+        val labels = HistoryRange.barLabels(range, HistoryRange.barKeys(range, now))
+
+        setText(R.id.textMealsTitle, "Meals, " + HistoryRange.title(range))
+        setText(R.id.textActivityTitle, "Activity, " + HistoryRange.title(range))
+
+        cloud.loadFeedingsBetween(start, now,
+            onValue = { rows ->
+                runOnUiThread {
+                    // Skip it if the user already picked another range
+                    if (range == this.range) showMeals(HistoryRange.mealsPerBar(rows, range, now), labels)
+                }
+            },
+            onError = { message -> runOnUiThread { setText(R.id.textMealsSummary, "Error: $message") } }
+        )
+
+        cloud.loadDaySummaries(HistoryRange.dayKey(start), HistoryRange.dayKey(now),
+            onValue = { days ->
+                runOnUiThread {
+                    if (range == this.range) showActivity(HistoryRange.activityPerBar(days, range, now), labels)
+                }
+            },
+            onError = { message -> runOnUiThread { setText(R.id.textActivitySummary, "Error: $message") } }
+        )
+    }
+
+    /** Bar graph: meals given in each day (or month), oldest on the left. */
+    private fun showMeals(counts: IntArray, labels: Array<String>) {
+        val total = counts.sum()
+        val chart = findViewById<SimpleChartView>(R.id.chartMeals)
+        if (total == 0) {
+            setText(R.id.textMealsSummary, "--")
+            chart.setBars(FloatArray(0), arrayOf(), getColor(R.color.accent))
+        } else {
+            setText(R.id.textMealsSummary, if (total == 1) "1 meal" else "$total meals")
+            chart.setBars(FloatArray(counts.size) { counts[it].toFloat() }, labels, getColor(R.color.accent))
+        }
+    }
+
+    /** Bar graph: percent of the time active in each day (or month). Null = not enough data. */
+    private fun showActivity(bars: HistoryRange.ActivityBars?, labels: Array<String>) {
+        val chart = findViewById<SimpleChartView>(R.id.chartActivity)
+        if (bars == null) {
+            setText(R.id.textActivitySummary, "--")
+            chart.setBars(FloatArray(0), arrayOf(), getColor(R.color.primary))
+        } else {
+            setText(R.id.textActivitySummary, "Active ${bars.overallPercent}% of the time")
+            chart.setBars(bars.percents, labels, getColor(R.color.primary), "%")
+        }
     }
 
     /** Previous or next day. You can't go past today. */
@@ -104,22 +166,6 @@ class HistoryActivity : Activity() {
         )
     }
 
-    /** Bar graph: meals given on each of the last 7 days, today on the right. */
-    private fun showWeekOfMeals(rows: List<Map<String, Any>>) {
-        val counts = MealLimit.mealsPerDay(rows, 7)
-        val dayName = SimpleDateFormat("EEE", Locale.getDefault())
-        val labels = Array(7) { i ->
-            val day = Calendar.getInstance()
-            day.add(Calendar.DAY_OF_YEAR, i - 6)
-            if (i == 6) "Today" else dayName.format(day.time)
-        }
-        val total = counts.sum()
-        setText(R.id.textMealsSummary, "$total meals this week")
-        val chart = findViewById<SimpleChartView>(R.id.chartMeals)
-        if (total == 0) chart.setBars(FloatArray(0), arrayOf(), getColor(R.color.accent))
-        else chart.setBars(FloatArray(7) { counts[it].toFloat() }, labels, getColor(R.color.accent))
-    }
-
     /** Line graph for the selected day: movement. */
     private fun showDayOfReadings(all: List<CollarReading>) {
         val readings = all.sortedBy { it.timeMillis }
@@ -147,7 +193,6 @@ class HistoryActivity : Activity() {
     }
 
     private companion object {
-        const val FEEDINGS_TO_LOAD = 100
         const val MAX_POINTS = 288 // one point per 5 minutes over a whole day
     }
 }

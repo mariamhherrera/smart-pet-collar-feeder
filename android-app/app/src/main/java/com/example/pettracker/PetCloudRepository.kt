@@ -4,6 +4,7 @@ import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.DatabaseReference
 import com.google.firebase.database.FirebaseDatabase
+import com.google.firebase.database.ServerValue
 import com.google.firebase.database.ValueEventListener
 import java.util.Calendar
 
@@ -48,8 +49,33 @@ class PetCloudRepository(uid: String) {
         lastSavedTime = reading.timeMillis
         userRoot.child("collar").child("readings").child(reading.timeMillis.toString())
             .setValue(reading.toHistoryRow())
+
+        // UI-6.1: also count it in that day's summary, so the month and year graphs
+        // only load one small row per day instead of every reading.
+        // history/days/2026-11-14 = { readings: 120, activeReadings: 30 }
+        val count = mutableMapOf<String, Any>("readings" to ServerValue.increment(1L))
+        if (HistoryRange.isActive(reading)) count["activeReadings"] = ServerValue.increment(1L)
+        userRoot.child("history").child("days").child(HistoryRange.dayKey(reading.timeMillis))
+            .updateChildren(count)
     }
     private var lastSavedTime = 0L
+
+    /** UI-6.2: Loads the day summaries from [fromDay] to [toDay] (like "2026-11-14"). */
+    fun loadDaySummaries(fromDay: String, toDay: String,
+                         onValue: (Map<String, Map<*, *>>) -> Unit, onError: (String) -> Unit) {
+        userRoot.child("history").child("days").orderByKey().startAt(fromDay).endAt(toDay)
+            .addListenerForSingleValueEvent(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    val days = mutableMapOf<String, Map<*, *>>()
+                    for (day in snapshot.children) {
+                        val row = day.value as? Map<*, *> ?: continue
+                        days[day.key ?: continue] = row
+                    }
+                    onValue(days)
+                }
+                override fun onCancelled(error: DatabaseError) { onError(error.message) }
+            })
+    }
 
     /**
      * Bluetooth backup: a reading that came over Bluetooth goes to collar/latest,

@@ -25,6 +25,10 @@ object MealLimit {
     @JvmStatic
     fun canFeed(mealsToday: Int, limit: Int): Boolean = mealsToday < limit
 
+    /** True if this feeding was really given (used by the History graphs, UI-6.2). */
+    @JvmStatic
+    fun wasGiven(row: Map<*, *>): Boolean = row["status"]?.toString()?.lowercase() !in notGiven
+
     /** Meals given on each of the last [days] days, oldest first (for the History graph). */
     @JvmStatic
     fun mealsPerDay(feedings: List<Map<*, *>>, days: Int, now: Long = System.currentTimeMillis()): IntArray {

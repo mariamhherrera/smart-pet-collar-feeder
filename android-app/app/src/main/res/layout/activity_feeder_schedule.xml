@@ -125,6 +125,18 @@
                     style="@style/Pt.Body"
                     android:textSize="12sp"
                     android:layout_marginTop="8dp" />
+
+                <!-- FD-4.3: asks the feeder for the food level (LEVEL) over Bluetooth -->
+                <Button
+                    android:id="@+id/buttonCheckFood"
+                    style="@style/Pt.RowButton"
+                    android:layout_height="40dp"
+                    android:gravity="center"
+                    android:text="Check food level"
+                    android:textSize="13sp"
+                    android:textColor="@color/primary"
+                    android:background="@drawable/bg_tile"
+                    android:layout_marginTop="12dp" />
             </LinearLayout>
 
             <!-- ===== Daily schedule ===== -->

@@ -2,6 +2,7 @@ package com.example.pettracker.feeder;
 
 import android.os.Bundle;
 import android.widget.Button;
+import android.widget.ProgressBar;
 import android.widget.RadioGroup;
 import android.widget.TextView;
 import android.widget.TimePicker;
@@ -10,6 +11,8 @@ import android.app.Activity;
 import android.app.AlertDialog;
 
 import com.example.pettracker.BottomNav;
+import com.example.pettracker.FoodLevel;
+import com.example.pettracker.FoodLevelStorage;
 import com.example.pettracker.MealLimit;
 import com.example.pettracker.SettingsStorage;
 import com.example.pettracker.R;
@@ -19,6 +22,7 @@ import com.example.pettracker.bluetooth.FeederConnection;
 import com.example.pettracker.bluetooth.FeederMessage;
 import com.example.pettracker.bluetooth.FeederReply;
 import org.jetbrains.annotations.NotNull;
+import java.util.Date;
 import java.util.Locale;
 import kotlin.Unit;
 
@@ -60,6 +64,10 @@ public class ScheduleActivity extends Activity {
         Button feedNowButton = findViewById(R.id.feedNowButton);
         feedNowButton.setOnClickListener(v -> onFeedNowClicked());
 
+        // FD-4.3: food level card, shows the last level until the feeder sends a new one
+        showFoodLevel();
+        findViewById(R.id.buttonCheckFood).setOnClickListener(v -> onCheckFoodClicked());
+
         // FD-1.3: connection to the feeder, used by Save and Feed now
         feeder = new FeederConnection(this, new FeederConnection.Listener() {
             @Override
@@ -69,6 +77,7 @@ public class ScheduleActivity extends Activity {
                     // UI-8.3: the feeder also needs the meal limit for scheduled meals
                     feeder.send(FeederMessage.limitCommand(new SettingsStorage(ScheduleActivity.this).getMealLimit()));
                     if (bluetoothScheduleBackupRequired) sendTimeAndSchedule();
+                    feeder.send(FeederMessage.LEVEL); // FD-4.3: fresh food level every time it connects
                 }
             }
 
@@ -76,6 +85,15 @@ public class ScheduleActivity extends Activity {
             public void onReply(@NotNull FeederReply reply) {
                 if (reply instanceof FeederReply.TimeSet) return; // nothing to tell the owner
                 if (reply instanceof FeederReply.LimitSet) return;
+                if (reply instanceof FeederReply.FoodLevel) {
+                    onFoodLevel(((FeederReply.FoodLevel) reply).getPercent());
+                    return; // the card shows it, no toast needed
+                }
+                if (reply instanceof FeederReply.NoFoodLevel) {
+                    ((TextView) findViewById(R.id.textFoodLevelNote)).setText(
+                            "The feeder can't measure the food. Check the IR sensor wires.");
+                    return;
+                }
                 if (reply instanceof FeederReply.Fed) feederMealsToday = ((FeederReply.Fed) reply).getFeedsToday();
                 if (reply instanceof FeederReply.ScheduledFed) feederMealsToday = ((FeederReply.ScheduledFed) reply).getFeedsToday();
                 Toast.makeText(ScheduleActivity.this, FeederMessage.screenText(reply),
@@ -119,6 +137,51 @@ public class ScheduleActivity extends Activity {
             feeder.send(FeederMessage.scheduleCommand(
                     storage.getHour(), storage.getMinute(), storage.getPortion()));
         }
+    }
+
+    /** FD-4.3: "Check food level" asks the feeder over Bluetooth. */
+    private void onCheckFoodClicked() {
+        if (!feeder.isConnected()) {
+            Toast.makeText(this, "Connect to the feeder by Bluetooth first", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        ((TextView) findViewById(R.id.textFoodLevelNote)).setText("Checking…");
+        feeder.send(FeederMessage.LEVEL);
+    }
+
+    /** FD-4.3: a new level from the feeder. Saves it, shows it, and warns once when it goes low. */
+    private void onFoodLevel(int percent) {
+        int lowPercent = new SettingsStorage(this).getLowFoodPercent();
+        boolean alert = new FoodLevelStorage(this).save(percent, lowPercent, System.currentTimeMillis());
+        if (alert) {
+            String uid = FirebaseAuth.getInstance().getUid();
+            if (uid != null) new PetCloudRepository(uid).addAlert("low_food", FoodLevel.alertText(percent));
+            Toast.makeText(this, FoodLevel.alertText(percent), Toast.LENGTH_LONG).show();
+        }
+        showFoodLevel();
+    }
+
+    /** FD-4.3: Food left card: "63%", the bar, and when it was checked (red when low). */
+    private void showFoodLevel() {
+        FoodLevelStorage saved = new FoodLevelStorage(this);
+        TextView text = findViewById(R.id.textFoodLevel);
+        ProgressBar bar = findViewById(R.id.progressFoodLevel);
+        TextView note = findViewById(R.id.textFoodLevelNote);
+        Integer percent = saved.getPercent();
+        if (percent == null) {
+            text.setText("--%");
+            bar.setProgress(0);
+            note.setText("Not checked yet. Connect by Bluetooth and tap Check food level.");
+            return;
+        }
+        int lowPercent = new SettingsStorage(this).getLowFoodPercent();
+        boolean low = FoodLevel.isLow(percent, lowPercent);
+        text.setText(percent + "%");
+        text.setTextColor(low ? 0xFFDC2626 : getColor(R.color.text_primary));
+        bar.setProgress(percent);
+        String time = android.text.format.DateFormat.getTimeFormat(this).format(new Date(saved.getCheckedAt()));
+        note.setText(low ? "Low, refill the feeder · checked " + time : "Checked " + time);
+        note.setTextColor(low ? 0xFFDC2626 : getColor(R.color.text_secondary));
     }
 
     /** Green "Feeder connected" or red "Feeder not connected" at the top of the screen. */

@@ -50,7 +50,7 @@ class ProfileActivity : Activity() {
 
         setContentView(R.layout.activity_profile)
         // Opened from the profile icon: back arrow in the top bar (UI-7.1)
-        setup = intent.getBooleanExtra(EXTRA_SETUP, false)
+        setup = intent.getBooleanExtra(EXTRA_SETUP, false) || database.getPetProfile(auth.currentUser!!.uid) == null
         BottomNav.setUpDetail(this, if (setup) "Add your pet" else "Pet profile")
         findViewById<View>(R.id.textProfileStep).visibility = if (setup) View.VISIBLE else View.GONE
 

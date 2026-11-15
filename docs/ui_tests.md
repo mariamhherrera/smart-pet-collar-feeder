@@ -34,7 +34,7 @@ so the activity graph only covers that time until the collar saves its own histo
 | T15 | UI-8.1 | Settings: tap Log out. | Login screen opens. Back does not return to the app. | |
 | T16 | FD-4.3 | Feeder on and paired, container full. Open the Feeder page. | Food left card shows about 100% within a few seconds, the bar is full, and "Checked (time)". | |
 | T16b | FD-4.3 | Remove food until it is about half full, tap "Check food level". | The card shows about 50% and the time updates. | |
-| T16c | FD-4.3 | Settings: low food at 20%, Save. Empty the container until below 20%, tap "Check food level". | The % turns red, "Low, refill the feeder", and a pop-up "Food is low". Home: the alert box says "Food is low (x% left)". In Firebase, `owners/(uid)/alerts` has one new `low_food` alert. | |
-| T16d | FD-4.3 | Still low, tap "Check food level" 2 more times. | No new alert in Firebase (one alert per refill). After refilling and checking again, the alert box on Home is gone. | |
-| T16e | FD-4.3 | Close the app, reopen it, open Home. | The Feeder tile still shows "Food left: x%" from the last check. | |
+| T16c | FD-4.3 | Settings: low food at 20%, Save. Empty the container until below 20%, tap "Check food level". | The % turns red, "Low, refill the feeder", and a pop-up "Food is low". In Firebase, `owners/(uid)/alerts` has one new `low_food` alert. | |
+| T16d | FD-4.3 | Still low, tap "Check food level" 2 more times. | No new alert in Firebase (one alert per refill). After refilling and checking again, the % is no longer red. | |
+| T16e | FD-4.3 | Close the app, reopen it, open the Feeder page (feeder off). | The card still shows the % and time from the last check. | |
 | T16f | FD-4.3 | Unplug the IR sensor's SDA wire, restart the feeder, tap "Check food level". | The card says "The feeder can't measure the food. Check the IR sensor wires." The app does not crash. | |

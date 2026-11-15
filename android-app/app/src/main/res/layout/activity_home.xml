@@ -170,19 +170,6 @@
                             android:maxLines="2"
                             android:ellipsize="end"
                             android:layout_marginTop="10dp" />
-
-                        <!-- FD-4.3: food left, from the feeder's IR sensor -->
-                        <TextView
-                            android:id="@+id/textHomeFood"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:text="Food left: --%"
-                            android:textSize="13sp"
-                            android:textColor="@color/text_secondary"
-                            android:fontFamily="@font/plus_jakarta_sans_semibold"
-                            android:maxLines="1"
-                            android:ellipsize="end"
-                            android:layout_marginTop="4dp" />
                     </LinearLayout>
 
                 </LinearLayout>

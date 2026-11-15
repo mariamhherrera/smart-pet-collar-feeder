@@ -206,12 +206,6 @@ class HomeActivity : Activity() {
                 if (number != feederConnectionNumber) return@runOnUiThread
                 // Turn the feeder's reply (like "OK FED 1") into a sentence for the owner
                 val reply = FeederMessage.parse(line) ?: return@runOnUiThread // not a reply, ignore it
-                // FD-4.3: food level, shown on the Feeder tile (not in the Feed Now message)
-                if (reply is FeederReply.FoodLevel) {
-                    onFoodLevel(reply.percent)
-                    return@runOnUiThread
-                }
-                if (reply is FeederReply.NoFoodLevel) return@runOnUiThread
                 // Answers to the automatic TIME and SCHEDULE: keep showing "Feeder connected"
                 if (reply is FeederReply.TimeSet || reply is FeederReply.ScheduleSaved ||
                     reply is FeederReply.LimitSet) return@runOnUiThread
@@ -231,7 +225,6 @@ class HomeActivity : Activity() {
         feederSender.execute {
             link.send(FeederMessage.timeCommandNow())
             link.send(limit)
-            link.send(FeederMessage.LEVEL) // FD-4.3: fresh food level every time it connects
         }
     }
 
@@ -263,7 +256,6 @@ class HomeActivity : Activity() {
 
         showNextMeal()
         showMealsToday()
-        showFoodLevel()
     }
 
     /** Next meal card: the time and portion saved on the Feeder page. */
@@ -293,25 +285,6 @@ class HomeActivity : Activity() {
         val reached = !MealLimit.canFeed(mealsToday, limit)
         textMealsToday.text = if (reached) "Limit reached ($mealsToday of $limit)" else "$mealsToday of $limit meals today"
         textMealsToday.setTextColor(if (reached) 0xFFDC2626.toInt() else getColor(R.color.text_secondary))
-    }
-
-    /** FD-4.3: a new level from the feeder. Saves it, shows it, and warns once when it goes low. */
-    private fun onFoodLevel(percent: Int) {
-        val lowPercent = SettingsStorage(this).lowFoodPercent
-        if (FoodLevelStorage(this).save(percent, lowPercent)) {
-            cloud?.addAlert("low_food", FoodLevel.alertText(percent))
-        }
-        showFoodLevel()
-        showLocationAndAlerts() // the alert box at the top also shows low food
-    }
-
-    /** FD-4.3: "Food left: 63%" on the Feeder tile, red when low. */
-    private fun showFoodLevel() {
-        val percent = FoodLevelStorage(this).percent
-        val text = findViewById<TextView>(R.id.textHomeFood)
-        val low = FoodLevel.isLow(percent, SettingsStorage(this).lowFoodPercent)
-        text.text = if (percent == null) "Food left: --%" else "Food left: $percent%"
-        text.setTextColor(if (low) 0xFFDC2626.toInt() else getColor(R.color.text_secondary))
     }
 
     /** Collar tile: online if a reading came in the last 30 seconds. */
@@ -399,8 +372,6 @@ class HomeActivity : Activity() {
                             else -> 0xFFDC2626.toInt()
                         }
                     )
-                    // FD-4.3: once the feeder is on Wi-Fi it writes its food level here too
-                    FoodLevel.fromStatus(status)?.let { onFoodLevel(it) }
                 }
             },
             onError = { }
@@ -464,9 +435,6 @@ class HomeActivity : Activity() {
         if (outside && settings.safeZoneAlerts) alerts.add("$petName left the safe zone. Check the Collar page.")
         if (lastCollarReadingTime > 0 && System.currentTimeMillis() - lastCollarReadingTime > 30_000L)
             alerts.add("The collar is offline since " + clock(lastCollarReadingTime) + ".")
-        // FD-4.3: low food, using the % picked in Settings
-        val food = FoodLevelStorage(this).percent
-        if (food != null && FoodLevel.isLow(food, settings.lowFoodPercent)) alerts.add(FoodLevel.alertText(food))
         val alertBox = findViewById<TextView>(R.id.textAlert)
         alertBox.text = alerts.joinToString("\n")
         alertBox.visibility = if (alerts.isEmpty()) android.view.View.GONE else android.view.View.VISIBLE

@@ -321,6 +321,13 @@ void checkNewDay() {
   }
   if (today == currentDate) return;
 
+  // The clock went back (it was wrong before): keep counting, no new day
+  if (today < currentDate) {
+    currentDate = today;
+    saveToMemory();
+    return;
+  }
+
   DayTotals finished;
   strncpy(finished.date, currentDate.c_str(), sizeof(finished.date));
   finished.date[10] = '\0';
@@ -546,6 +553,11 @@ void uploadDays() {
 void setup() {
   Serial.begin(115200);
   delay(1500);
+
+  // Montreal / Toronto time from the start. After a restart the chip still
+  // knows the time, so without this the date would be UTC (tomorrow after 7 PM).
+  setenv("TZ", TIME_ZONE, 1);
+  tzset();
 
   collarId = makeCollarId();
   Serial.println();

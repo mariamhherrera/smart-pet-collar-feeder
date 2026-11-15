@@ -12,6 +12,27 @@
           }
         }
       }
+    },
+    "collars": {
+      ".read": "auth != null",
+      ".indexOn": ["seenAt"],
+      "$collarId": {
+        "latest": {
+          ".write": "auth != null"
+        },
+        "seenAt": {
+          ".write": "auth != null"
+        },
+        "owner": {
+          ".write": "auth != null && (!data.exists() || data.val() === auth.uid) && (!newData.exists() || newData.val() === auth.uid)"
+        }
+      }
+    },
+    "collarDays": {
+      "$collarId": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
     }
   }
 }

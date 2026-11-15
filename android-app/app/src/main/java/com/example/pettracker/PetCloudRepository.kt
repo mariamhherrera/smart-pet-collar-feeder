@@ -9,13 +9,21 @@ import com.google.firebase.database.ValueEventListener
 import java.util.Calendar
 
 
-class PetCloudRepository(uid: String) {
-    // "owners" matches database.rules.json and the collar firmware (COM-3.2).
+/**
+ * [collarId] is the collar linked to the pet (COM-4, CollarLink), or null if none is linked.
+ * The collar writes under collars/<collarId>; everything else is under owners/<uid>.
+ */
+class PetCloudRepository(uid: String, private val collarId: String? = null) {
+    // "owners" matches database.rules.json.
     // ("users" was refused by the rules, so nothing could be read or written.)
-    private val userRoot: DatabaseReference =
-        FirebaseDatabase.getInstance().reference.child("owners").child(uid)
+    private val root: DatabaseReference = FirebaseDatabase.getInstance().reference
+    private val userRoot: DatabaseReference = root.child("owners").child(uid)
 
-    /** The newest collar reading. The ESP32-S2 overwrites collar/latest every 5 seconds. */
+    /** The linked collar's newest reading (the collar overwrites it every 5 seconds). Null if no collar is linked. */
+    private val collarLatest: DatabaseReference? =
+        collarId?.let { root.child("collars").child(it).child("latest") }
+
+    /** The newest collar reading. Gives null right away if no collar is linked. */
     fun listenToLatestCollar(onValue: (Map<String, Any>?) -> Unit,
                              onError: (String) -> Unit): ValueEventListener {
         val listener = object : ValueEventListener {
@@ -25,13 +33,35 @@ class PetCloudRepository(uid: String) {
             }
             override fun onCancelled(error: DatabaseError) { onError(error.message) }
         }
-        userRoot.child("collar").child("latest").addValueEventListener(listener)
+        if (collarLatest == null) onValue(null) else collarLatest.addValueEventListener(listener)
         return listener
+    }
+
+    /**
+     * COL-2.3: the collar's totals per day, from [fromDay] to [toDay] (like "2026-11-14").
+     * collarDays/<collarId>/2026-11-14 = { restingSeconds, walkingSeconds, runningSeconds }
+     */
+    fun loadCollarDays(fromDay: String, toDay: String,
+                       onValue: (Map<String, Map<*, *>>) -> Unit, onError: (String) -> Unit) {
+        val id = collarId ?: run { onValue(emptyMap()); return }
+        root.child("collarDays").child(id).orderByKey().startAt(fromDay).endAt(toDay)
+            .addListenerForSingleValueEvent(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    val days = mutableMapOf<String, Map<*, *>>()
+                    for (day in snapshot.children) {
+                        val row = day.value as? Map<*, *> ?: continue
+                        days[day.key ?: continue] = row
+                    }
+                    onValue(days)
+                }
+                override fun onCancelled(error: DatabaseError) { onError(error.message) }
+            })
     }
 
     /** COL-6: reads the newest collar reading once (used by "Set home" in Settings). */
     fun loadLatestCollar(onValue: (Map<String, Any>?) -> Unit, onError: (String) -> Unit) {
-        userRoot.child("collar").child("latest").addListenerForSingleValueEvent(object : ValueEventListener {
+        val latest = collarLatest ?: run { onValue(null); return }
+        latest.addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 @Suppress("UNCHECKED_CAST")
                 onValue(snapshot.value as? Map<String, Any>)
@@ -86,7 +116,7 @@ class PetCloudRepository(uid: String) {
         row["receivedAt"] = reading.timeMillis
         row["source"] = "bluetooth_backup"
         // updateChildren, not setValue: keeps fields the Wi-Fi collar wrote (like batteryPercent)
-        userRoot.child("collar").child("latest").updateChildren(row)
+        collarLatest?.updateChildren(row)
     }
 
     /** History for the graphs (UI-6.2): the last [count] saved readings, oldest first. */
@@ -147,8 +177,7 @@ class PetCloudRepository(uid: String) {
 
     fun collarReadingsRef(): DatabaseReference =
         userRoot.child("collar").child("readings")
-    fun collarLatestRef(): DatabaseReference =
-        userRoot.child("collar").child("latest")
+    fun collarLatestRef(): DatabaseReference? = collarLatest
 
     fun listenToCollarStatus(onValue: (Map<String, Any>?) -> Unit,
                              onError: (String) -> Unit): ValueEventListener =
@@ -304,7 +333,7 @@ class PetCloudRepository(uid: String) {
     }
 
     fun removeCollarListener(listener: ValueEventListener) {
-        userRoot.child("collar").child("latest").removeEventListener(listener)
+        collarLatest?.removeEventListener(listener)
     }
 
     fun removeFeedingsListener(listener: ValueEventListener) = removeFeedingsListener(10, listener)

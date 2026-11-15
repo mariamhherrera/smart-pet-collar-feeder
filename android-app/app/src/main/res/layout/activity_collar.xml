@@ -222,7 +222,7 @@
                     android:layout_marginTop="2dp" />
             </LinearLayout>
 
-            <!-- ===== Activity right now (COL-2.2 fills in the label) ===== -->
+            <!-- ===== Activity right now (COL-2.2): Resting / Walking / Running ===== -->
             <LinearLayout
                 style="@style/Pt.Card"
                 android:layout_width="match_parent"
@@ -245,7 +245,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Live motion"
+                        android:text="Activity now"
                         style="@style/Pt.Label"
                         android:layout_marginStart="10dp" />
                 </LinearLayout>

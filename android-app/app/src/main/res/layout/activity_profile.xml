@@ -26,6 +26,22 @@
             android:paddingTop="20dp"
             android:paddingBottom="32dp">
 
+            <!-- Only shown right after registering (step 2 = pair the collar) -->
+            <TextView
+                android:id="@+id/textProfileStep"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Step 1 of 2"
+                style="@style/Pt.Label"
+                android:textColor="@color/primary_dark"
+                android:background="@drawable/bg_step"
+                android:paddingStart="10dp"
+                android:paddingEnd="10dp"
+                android:paddingTop="4dp"
+                android:paddingBottom="4dp"
+                android:layout_marginBottom="16dp"
+                android:visibility="gone" />
+
             <!-- ===== Pet details ===== -->
             <LinearLayout
                 style="@style/Pt.Card"
@@ -140,6 +156,131 @@
                     android:padding="16dp"
                     android:textColor="@color/text_primary"
                     android:layout_marginBottom="4dp"/>
+            </LinearLayout>
+
+            <!-- ===== Collar (COM-4): linked collar, Change collar / Unlink, or Pair collar ===== -->
+            <LinearLayout
+                android:id="@+id/cardCollar"
+                style="@style/Pt.Card"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Collar"
+                    style="@style/Pt.Label"
+                    android:layout_marginBottom="10dp" />
+
+                <!-- A collar is linked -->
+                <LinearLayout
+                    android:id="@+id/layoutCollarLinked"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <ImageView
+                            style="@style/Pt.Icon"
+                            android:background="@drawable/bg_icon_teal"
+                            android:src="@drawable/ic_pets"
+                            android:tint="@color/primary"
+                            android:contentDescription="Collar" />
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical"
+                            android:layout_marginStart="12dp">
+
+                            <TextView
+                                android:id="@+id/textProfileCollarId"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text=""
+                                style="@style/Pt.Title" />
+
+                            <TextView
+                                android:id="@+id/textProfileCollarStatus"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text=""
+                                style="@style/Pt.Body"
+                                android:textSize="12sp" />
+                        </LinearLayout>
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginTop="8dp">
+
+                        <TextView
+                            android:id="@+id/buttonChangeCollar"
+                            android:layout_width="0dp"
+                            android:layout_height="44dp"
+                            android:layout_weight="1"
+                            android:gravity="start|center_vertical"
+                            android:text="Change collar"
+                            android:textColor="@color/primary"
+                            android:textSize="14sp"
+                            android:fontFamily="@font/plus_jakarta_sans_bold"
+                            android:background="@drawable/bg_row"
+                            android:paddingStart="4dp"
+                            android:paddingEnd="4dp" />
+
+                        <TextView
+                            android:id="@+id/buttonUnlinkCollar"
+                            android:layout_width="wrap_content"
+                            android:layout_height="44dp"
+                            android:gravity="end|center_vertical"
+                            android:text="Unlink"
+                            android:textColor="@color/heart"
+                            android:textSize="14sp"
+                            android:fontFamily="@font/plus_jakarta_sans_bold"
+                            android:background="@drawable/bg_row"
+                            android:paddingStart="12dp"
+                            android:paddingEnd="4dp" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- No collar linked -->
+                <LinearLayout
+                    android:id="@+id/layoutNoCollar"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="No collar linked"
+                        style="@style/Pt.Title" />
+
+                    <TextView
+                        android:id="@+id/buttonPairCollar"
+                        android:layout_width="wrap_content"
+                        android:layout_height="44dp"
+                        android:gravity="center_vertical"
+                        android:text="Pair collar ›"
+                        android:textColor="@color/primary"
+                        android:textSize="14sp"
+                        android:fontFamily="@font/plus_jakarta_sans_bold"
+                        android:background="@drawable/bg_row"
+                        android:paddingStart="12dp"
+                        android:paddingEnd="4dp" />
+                </LinearLayout>
             </LinearLayout>
 
             <Button

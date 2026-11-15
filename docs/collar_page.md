@@ -1,6 +1,6 @@
 # Collar page (UI-5)
 
-The Collar page shows the pet's live heart rate and activity from Firebase (`owners/{uid}/collar/latest`).
+The Collar page shows the linked collar's data from Firebase (`collars/{collarId}/latest`). The collar is linked in the pet profile (COM-4).
 Open it from the **Collar** tab in the bottom bar.
 
 ## Normal heart rate ranges (UI-5.1)
@@ -24,7 +24,8 @@ Sources:
 
 - **Connected:** the newest reading is less than 30 seconds old (the collar uploads every 5 seconds).
 - **Heart rate colour (UI-5.3):** green inside the normal range (the ends count as normal), red outside it.
-- **Activity:** shows `activity` from Firebase once COL-2 saves it. Until then it shows a rough "Still" or "Moving" from the gyroscope (moving above 30 °/s).
+- **Activity (COL-2.2):** Resting, Walking or Running, worked out on the collar every 4 seconds from the steps per second. "Measuring…" for the first 4 seconds.
+- **Today (COL-2.3):** minutes of each activity since midnight, counted on the collar (so they are complete even when the app is closed).
 
 The rules are in `CollarVitals.kt`, and the unit tests are in `CollarVitalsTest.kt`.
 
@@ -43,4 +44,4 @@ For cases 3 to 6, turn the collar off (it overwrites `latest` every 5 seconds). 
 | 5 | Cat profile, `heartRateBpm` = 100 | 100 BPM in red, "Lower than normal" |
 | 6 | Collar on, no `heartRateBpm` field | "Waiting for heart rate" |
 | 7 | No pet profile | Heart rate shows with no colour, "Add a pet profile to check if this is normal" |
-| 8 | Shake the collar, then leave it still | Activity changes from "Moving" to "Still" |
+| 8 | Walk with the collar, then leave it still | Activity changes from "Walking" to "Resting" (see `pairing_and_activity_tests.md`) |

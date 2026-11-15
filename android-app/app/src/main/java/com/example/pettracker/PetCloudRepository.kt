@@ -13,7 +13,7 @@ import java.util.Calendar
  * [collarId] is the collar linked to the pet (COM-4, CollarLink), or null if none is linked.
  * The collar writes under collars/<collarId>; everything else is under owners/<uid>.
  */
-class PetCloudRepository(uid: String, private val collarId: String? = null) {
+class PetCloudRepository @JvmOverloads constructor(uid: String, private val collarId: String? = null) {
     // "owners" matches database.rules.json.
     // ("users" was refused by the rules, so nothing could be read or written.)
     private val root: DatabaseReference = FirebaseDatabase.getInstance().reference

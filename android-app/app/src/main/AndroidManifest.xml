@@ -27,6 +27,7 @@
         android:required="false" />
 
     <application
+        android:name=".PetTrackerApp"
         android:allowBackup="false"
         android:label="PetTracker"
         android:supportsRtl="true"
@@ -49,6 +50,10 @@
         <activity
             android:name=".RegisterActivity"
             android:exported="false" />
+        <activity
+            android:name=".PairCollarActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
         <activity
             android:name=".MainActivity"
             android:exported="true">

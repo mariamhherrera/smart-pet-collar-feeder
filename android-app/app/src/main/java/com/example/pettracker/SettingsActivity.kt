@@ -103,7 +103,11 @@ class SettingsActivity : Activity() {
     /** COL-6: saves the collar's current GPS position as home. */
     private fun setHomeFromCollar() {
         val uid = auth.currentUser?.uid ?: return
-        PetCloudRepository(uid).loadLatestCollar(
+        val collarId = CollarLink(this, uid).collarId ?: run {
+            Toast.makeText(this, "No collar linked. Pair it in the pet profile first.", Toast.LENGTH_LONG).show()
+            return
+        }
+        PetCloudRepository(uid, collarId).loadLatestCollar(
             onValue = { row ->
                 runOnUiThread {
                     val reading = CollarReading.fromMap(row)

@@ -145,6 +145,15 @@
                         android:textSize="22sp"
                         android:layout_marginTop="12dp" />
 
+                    <!-- COL-2.3: resting / walking / running minutes over the range -->
+                    <TextView
+                        android:id="@+id/textActivityBreakdown"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text=""
+                        style="@style/Pt.Body"
+                        android:textSize="12sp" />
+
                     <com.example.pettracker.charts.SimpleChartView
                         android:id="@+id/chartActivity"
                         android:layout_width="match_parent"
@@ -200,6 +209,16 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text=""
+                        style="@style/Pt.Body"
+                        android:textSize="12sp" />
+
+                    <!-- COL-2.3: that day's minutes of each activity -->
+                    <TextView
+                        android:id="@+id/textDayActivity"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text=""
+                        android:gravity="center_horizontal"
                         style="@style/Pt.Body"
                         android:textSize="12sp" />
                 </LinearLayout>

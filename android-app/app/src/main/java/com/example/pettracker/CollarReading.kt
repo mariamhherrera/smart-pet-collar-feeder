@@ -8,6 +8,8 @@ import kotlin.math.sqrt
  *  - the ESP32-S2 (COM-3.2) writes {accelerationG: {x,y,z}, gyroscopeDegreesPerSecond: {x,y,z}, receivedAt}
  *  - the Bluetooth backup writes flat {ax, ay, az, gx, gy, gz, time}
  * batteryPercent, and the GPS position (COL-6: latitude, longitude), are read too when the collar sends them.
+ * COL-2: the collar also sends "activity" (resting / walking / running), "stepsPerSecond",
+ * and "today" = { date, restingSeconds, walkingSeconds, runningSeconds }.
  */
 data class CollarReading(
     val timeMillis: Long,
@@ -15,8 +17,33 @@ data class CollarReading(
     val gx: Double, val gy: Double, val gz: Double,
     val battery: Int?,
     val latitude: Double? = null,
-    val longitude: Double? = null
+    val longitude: Double? = null,
+    val activity: String? = null,
+    val stepsPerSecond: Double? = null,
+    val todayDate: String? = null,
+    val restingSeconds: Long = 0,
+    val walkingSeconds: Long = 0,
+    val runningSeconds: Long = 0,
+    val wifiSignal: Int? = null
 ) {
+    /** COL-2.2: "Resting", "Walking" or "Running". Null for the first 4 seconds after the collar starts. */
+    fun activityLabel(): String? = when (activity) {
+        "resting" -> "Resting"
+        "walking" -> "Walking"
+        "running" -> "Running"
+        else -> null
+    }
+
+    /**
+     * COL-2.3: today's seconds of resting, walking and running.
+     * All 0 if the collar's numbers are from another day (it has not sent since midnight).
+     * [todayKey] is today's date like "2026-11-14" (HistoryRange.dayKey).
+     */
+    fun secondsToday(todayKey: String): LongArray =
+        if (todayDate.isNullOrEmpty() || todayDate == todayKey)
+            longArrayOf(restingSeconds, walkingSeconds, runningSeconds)
+        else longArrayOf(0, 0, 0)
+
     /** True when the collar sent a GPS position (it has none indoors or before the first fix). */
     fun hasLocation(): Boolean = latitude != null && longitude != null
     /** How much the collar is moving: 0 when still (only gravity, 1 g), bigger when moving. */
@@ -32,6 +59,7 @@ data class CollarReading(
         battery?.let { row["batteryPercent"] = it }
         latitude?.let { row["latitude"] = it }
         longitude?.let { row["longitude"] = it }
+        activity?.let { row["activity"] = it }
         return row
     }
 
@@ -58,11 +86,23 @@ data class CollarReading(
             var longitude = number(row["longitude"] ?: row["lon"])
             if (latitude == 0.0 && longitude == 0.0) { latitude = null; longitude = null }
 
-            return CollarReading(time, ax, ay, az, gx, gy, gz, battery, latitude, longitude)
+            // COL-2: activity and today's totals (only the new collar firmware sends them)
+            val today = row["today"] as? Map<*, *>
+            return CollarReading(
+                time, ax, ay, az, gx, gy, gz, battery, latitude, longitude,
+                activity = row["activity"] as? String,
+                stepsPerSecond = number(row["stepsPerSecond"]),
+                todayDate = today?.get("date") as? String,
+                restingSeconds = number(today?.get("restingSeconds"))?.toLong() ?: 0L,
+                walkingSeconds = number(today?.get("walkingSeconds"))?.toLong() ?: 0L,
+                runningSeconds = number(today?.get("runningSeconds"))?.toLong() ?: 0L,
+                wifiSignal = number(row["wifiSignal"])?.toInt()
+            )
         }
 
         /** Firebase gives numbers as Long or Double, sometimes as text. */
-        private fun number(value: Any?): Double? = when (value) {
+        @JvmStatic
+        fun number(value: Any?): Double? = when (value) {
             is Number -> value.toDouble()
             is String -> value.toDoubleOrNull()
             else -> null

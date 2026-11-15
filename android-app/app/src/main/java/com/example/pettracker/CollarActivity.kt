@@ -17,18 +17,22 @@ import java.util.Date
 
 /**
  * UI-5 Collar vitals page.
- * Main way: the collar sends to Firebase over Wi-Fi (COM-3.2), this page listens to collar/latest.
+ * Main way: the collar sends to Firebase over Wi-Fi (COM-3.2), this page listens to
+ * collars/<ID>/latest of the collar linked to the pet (COM-4).
  * Backup: "Connect by Bluetooth" reads the collar directly and writes the readings to Firebase,
  * so Home and History see them the same way.
+ * Activity (COL-2.2): resting / walking / running, worked out on the collar every 4 seconds.
+ * Today (COL-2.3): minutes of each activity since midnight, counted on the collar.
  * Location and safe zone (COL-6): where the collar is, and whether it is inside the safe zone
- * set in Settings. Sleep (COL-5) and the minutes per activity (COL-2.3) show "--" until the
- * collar sends its 1-minute summaries.
+ * set in Settings.
  */
 class CollarActivity : Activity(), BluetoothSppClient.Listener {
 
     private val auth = FirebaseAuth.getInstance()
     private var cloud: PetCloudRepository? = null
     private var collarListener: ValueEventListener? = null
+    private var collarId: String? = null      // the collar linked to the pet (COM-4)
+    private var resumed = false
     private var collarClient: BluetoothSppClient? = null
     private var lastLocation: CollarReading? = null
 
@@ -77,22 +81,55 @@ class CollarActivity : Activity(), BluetoothSppClient.Listener {
     override fun onResume() {
         super.onResume()
         val user = auth.currentUser ?: return
+        resumed = true
 
-        val cloud = PetCloudRepository(user.uid)
-        this.cloud = cloud
-        collarListener = cloud.listenToLatestCollar(
-            onValue = { row -> runOnUiThread { CollarReading.fromMap(row)?.let { show(it) } } },
-            onError = { message -> runOnUiThread { textStatus.text = "Firebase error: $message" } }
-        )
+        // The phone's copy of the link right away, then check Firebase in case it changed
+        val link = CollarLink(this, user.uid)
+        listenToCollar(user.uid, link.collarId)
+        link.refresh { id ->
+            runOnUiThread { if (resumed && id != collarId) listenToCollar(user.uid, id) }
+        }
         clockHandler.post(refreshStatus)
         showLocation()
     }
 
-    override fun onPause() {
-        super.onPause()
+    /** Starts listening to the linked collar (or shows "No collar linked"). */
+    private fun listenToCollar(uid: String, id: String?) {
+        stopListening()
+        collarId = id
+        lastReadingTime = 0L
+        val cloud = PetCloudRepository(uid, id)
+        this.cloud = cloud
+        if (id == null) {
+            showNoCollar()
+            return
+        }
+        collarListener = cloud.listenToLatestCollar(
+            onValue = { row -> runOnUiThread { CollarReading.fromMap(row)?.let { show(it) } } },
+            onError = { message -> runOnUiThread { textStatus.text = "Firebase error: $message" } }
+        )
+    }
+
+    private fun stopListening() {
         collarListener?.let { cloud?.removeCollarListener(it) }
         collarListener = null
         cloud = null
+    }
+
+    private fun showNoCollar() {
+        textStatus.text = "No collar linked. Pair it in the pet profile."
+        textStatus.setTextColor(getColor(R.color.text_secondary))
+        findViewById<TextView>(R.id.textCollarActivity).text = "No collar linked"
+        textMotion.text = ""
+        for (id in listOf(R.id.textMinutesResting, R.id.textMinutesWalking, R.id.textMinutesRunning)) {
+            findViewById<TextView>(id).text = "-- min"
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        resumed = false
+        stopListening()
         clockHandler.removeCallbacks(refreshStatus)
         // Only one page can talk to the collar over Bluetooth at a time, so let go when leaving
         collarClient?.stop()
@@ -113,12 +150,19 @@ class CollarActivity : Activity(), BluetoothSppClient.Listener {
         findViewById<TextView>(R.id.textCollarBattery).text =
             reading.battery?.let { "$it%" } ?: "--%"
 
-        // Live motion: how much the collar moves (0 g = still), and the raw numbers
-        findViewById<TextView>(R.id.textCollarActivity).text = "%.2f g".format(reading.movement())
-        textMotion.text = "X %.2f · Y %.2f · Z %.2f g · %s".format(
+        // COL-2.2: resting / walking / running ("Measuring…" for the first 4 seconds)
+        findViewById<TextView>(R.id.textCollarActivity).text = reading.activityLabel() ?: "Measuring…"
+        val pace = reading.stepsPerSecond?.let { "%.1f steps/s · ".format(it) } ?: ""
+        textMotion.text = pace + "X %.2f · Y %.2f · Z %.2f g · %s".format(
             reading.ax, reading.ay, reading.az,
             android.text.format.DateFormat.getTimeFormat(this).format(Date(lastReadingTime))
         )
+
+        // COL-2.3: today's minutes of each activity, counted on the collar
+        val seconds = reading.secondsToday(HistoryRange.dayKey(System.currentTimeMillis()))
+        findViewById<TextView>(R.id.textMinutesResting).text = CollarPairing.formatMinutes(seconds[0])
+        findViewById<TextView>(R.id.textMinutesWalking).text = CollarPairing.formatMinutes(seconds[1])
+        findViewById<TextView>(R.id.textMinutesRunning).text = CollarPairing.formatMinutes(seconds[2])
     }
 
     /** "At home" / "Outside the safe zone" / "No GPS signal", with the distance and time. */
@@ -156,14 +200,16 @@ class CollarActivity : Activity(), BluetoothSppClient.Listener {
     }
 
     private fun showOnline() {
+        if (collarId == null) return   // "No collar linked" stays
         if (lastReadingTime == 0L) {
             textStatus.text = "Waiting for the collar"
             textStatus.setTextColor(getColor(R.color.text_secondary))
             return
         }
-        val online = System.currentTimeMillis() - lastReadingTime < 30_000L
-        textStatus.text = if (online) "Online" else "Offline since " +
-            android.text.format.DateFormat.getTimeFormat(this).format(Date(lastReadingTime))
+        val online = CollarPairing.isOnline(lastReadingTime, System.currentTimeMillis())
+        textStatus.text = if (online) "Online · $collarId" else "Offline since " +
+            android.text.format.DateFormat.getTimeFormat(this).format(Date(lastReadingTime)) +
+            " · last activity shown"
         textStatus.setTextColor(if (online) 0xFF15803D.toInt() else 0xFFDC2626.toInt())
     }
 

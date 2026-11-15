@@ -145,4 +145,50 @@ object HistoryRange {
         val overall = Math.round(100f * active.sum() / readings.sum())
         return ActivityBars(percents, overall)
     }
+
+    // ---------- Minutes per activity (COL-2.3) ----------
+
+    /**
+     * The activity graph: active minutes (walking + running) in each bar,
+     * and the total seconds of each activity over the whole range.
+     */
+    class ActivityMinutes(
+        val activeMinutes: FloatArray,
+        val restingSeconds: Long,
+        val walkingSeconds: Long,
+        val runningSeconds: Long
+    )
+
+    /**
+     * [days] comes from Firebase collarDays/<collarId>, written by the collar every minute:
+     * { "2026-11-14": { restingSeconds: 18000, walkingSeconds: 2520, runningSeconds: 480 }, ... }
+     * Returns null when the collar sent nothing in the range.
+     */
+    fun activityMinutesPerBar(days: Map<String, Map<*, *>>, range: Range, now: Long): ActivityMinutes? {
+        val keys = barKeys(range, now)
+        val active = FloatArray(keys.size)
+        var resting = 0L
+        var walking = 0L
+        var running = 0L
+        var any = false
+
+        for ((day, row) in days) {
+            val bar = keys.indexOf(barKeyForDay(range, day))
+            if (bar < 0) continue
+            val rest = seconds(row["restingSeconds"])
+            val walk = seconds(row["walkingSeconds"])
+            val run = seconds(row["runningSeconds"])
+            resting += rest
+            walking += walk
+            running += run
+            active[bar] += (walk + run) / 60f
+            any = true
+        }
+
+        if (!any) return null
+        return ActivityMinutes(active, resting, walking, running)
+    }
+
+    /** Seconds from one Firebase value (a number), or 0. */
+    fun seconds(value: Any?): Long = (value as? Number)?.toLong() ?: 0L
 }

@@ -15,11 +15,13 @@ import java.util.Date
 /**
  * UI-6 History graphs page.
  *  - Week / Month / Year (UI-6.2): meals and activity graphs for the chosen range.
- *    Activity comes from the day summaries saved with each reading (UI-6.1).
+ *    Activity (COL-2.3): minutes walking + running per day, from the totals the
+ *    collar sends every minute (collarDays/<collarId>).
  *  - Pick a day (UI-6.1): loads that day's saved readings and meals by date,
  *    then shows its movement graph. Sleep (COL-5) fills in once the collar sends
  *    its 1-minute summaries.
- * Readings are saved with their time while the app is open (Home or Collar page).
+ * Readings for the movement graph are saved while the app is open (Home or Collar page).
+ * The activity minutes are counted on the collar, so they are complete even when the app is closed.
  */
 class HistoryActivity : Activity() {
 
@@ -59,7 +61,7 @@ class HistoryActivity : Activity() {
     override fun onResume() {
         super.onResume()
         val user = auth.currentUser ?: return
-        cloud = PetCloudRepository(user.uid)
+        cloud = PetCloudRepository(user.uid, CollarLink(this, user.uid).collarId)
         loadRange()
         loadDay()
     }
@@ -90,10 +92,10 @@ class HistoryActivity : Activity() {
             onError = { message -> runOnUiThread { setText(R.id.textMealsSummary, "Error: $message") } }
         )
 
-        cloud.loadDaySummaries(HistoryRange.dayKey(start), HistoryRange.dayKey(now),
+        cloud.loadCollarDays(HistoryRange.dayKey(start), HistoryRange.dayKey(now),
             onValue = { days ->
                 runOnUiThread {
-                    if (range == this.range) showActivity(HistoryRange.activityPerBar(days, range, now), labels)
+                    if (range == this.range) showActivity(HistoryRange.activityMinutesPerBar(days, range, now), labels)
                 }
             },
             onError = { message -> runOnUiThread { setText(R.id.textActivitySummary, "Error: $message") } }
@@ -113,17 +115,26 @@ class HistoryActivity : Activity() {
         }
     }
 
-    /** Bar graph: percent of the time active in each day (or month). Null = not enough data. */
-    private fun showActivity(bars: HistoryRange.ActivityBars?, labels: Array<String>) {
+    /** Bar graph: minutes walking + running in each day (or month). Null = no collar data. */
+    private fun showActivity(minutes: HistoryRange.ActivityMinutes?, labels: Array<String>) {
         val chart = findViewById<SimpleChartView>(R.id.chartActivity)
-        if (bars == null) {
+        if (minutes == null) {
             setText(R.id.textActivitySummary, "--")
+            setText(R.id.textActivityBreakdown, "")
             chart.setBars(FloatArray(0), arrayOf(), getColor(R.color.primary))
         } else {
-            setText(R.id.textActivitySummary, "Active ${bars.overallPercent}% of the time")
-            chart.setBars(bars.percents, labels, getColor(R.color.primary), "%")
+            val active = minutes.walkingSeconds + minutes.runningSeconds
+            setText(R.id.textActivitySummary, CollarPairing.formatMinutes(active) + " active")
+            setText(R.id.textActivityBreakdown, breakdown(minutes.restingSeconds, minutes.walkingSeconds, minutes.runningSeconds))
+            chart.setBars(minutes.activeMinutes, labels, getColor(R.color.primary), " min")
         }
     }
+
+    /** "Resting 5 h 10 min · Walking 42 min · Running 8 min" */
+    private fun breakdown(resting: Long, walking: Long, running: Long): String =
+        "Resting " + CollarPairing.formatMinutes(resting) +
+            " · Walking " + CollarPairing.formatMinutes(walking) +
+            " · Running " + CollarPairing.formatMinutes(running)
 
     /** Previous or next day. You can't go past today. */
     private fun moveDay(days: Int) {
@@ -153,6 +164,22 @@ class HistoryActivity : Activity() {
         cloud.loadReadingsBetween(day, dayEnd,
             onValue = { readings -> runOnUiThread { if (day == selectedDay) showDayOfReadings(readings) } },
             onError = { message -> runOnUiThread { setText(R.id.textMovementSummary, "Error: $message") } }
+        )
+        // COL-2.3: that day's minutes of each activity, from the collar
+        val dayKey = HistoryRange.dayKey(day)
+        setText(R.id.textDayActivity, "")
+        cloud.loadCollarDays(dayKey, dayKey,
+            onValue = { days ->
+                runOnUiThread {
+                    if (day != selectedDay) return@runOnUiThread
+                    val row = days[dayKey]
+                    setText(R.id.textDayActivity, if (row == null) "No activity data" else breakdown(
+                        HistoryRange.seconds(row["restingSeconds"]),
+                        HistoryRange.seconds(row["walkingSeconds"]),
+                        HistoryRange.seconds(row["runningSeconds"])))
+                }
+            },
+            onError = { }
         )
         cloud.loadFeedingsBetween(day, dayEnd,
             onValue = { rows ->

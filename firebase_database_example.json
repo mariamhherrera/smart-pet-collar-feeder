@@ -1,6 +1,43 @@
 {
+  "collars": {
+    "PC-3C71F2": {
+      "owner": "{firebase-auth-uid}",
+      "seenAt": 1760000000000,
+      "latest": {
+        "collarId": "PC-3C71F2",
+        "deviceTimeSeconds": 12.345,
+        "accelerationG": { "x": 0.01, "y": 0.02, "z": 0.99 },
+        "gyroscopeDegreesPerSecond": { "x": 1.2, "y": -0.3, "z": 0.1 },
+        "batteryVoltage": 3.95,
+        "batteryPercent": 72,
+        "wifiSignal": -58,
+        "activity": "walking",
+        "stepsPerSecond": 1.75,
+        "today": {
+          "date": "2026-11-14",
+          "restingSeconds": 18000,
+          "walkingSeconds": 2520,
+          "runningSeconds": 480
+        },
+        "receivedAt": 1760000000000
+      }
+    }
+  },
+  "collarDays": {
+    "PC-3C71F2": {
+      "2026-11-14": {
+        "restingSeconds": 18000,
+        "walkingSeconds": 2520,
+        "runningSeconds": 480,
+        "updatedAt": 1760000000000
+      }
+    }
+  },
   "owners": {
     "{firebase-auth-uid}": {
+      "pet": {
+        "collarId": "PC-3C71F2"
+      },
       "collar": {
         "status": {
           "connected": true,

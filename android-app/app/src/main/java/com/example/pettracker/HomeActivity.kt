@@ -35,6 +35,8 @@ class HomeActivity : Activity() {
     private var collarListener: ValueEventListener? = null
     private var feedingListener: ValueEventListener? = null
     private var feederStatusListener: ValueEventListener? = null
+    private var collarId: String? = null   // the collar linked to the pet (COM-4)
+    private var resumed = false
 
     // Collar online check: the collar sends every 5 seconds, so 30 seconds of silence = offline
     private var lastCollarReadingTime = 0L
@@ -107,7 +109,18 @@ class HomeActivity : Activity() {
         }
 
         showPetInformation()
+        resumed = true
         attachCloudListeners()
+        // The link may have changed on another phone: if so, listen to the new collar
+        val uid = auth.currentUser!!.uid
+        CollarLink(this, uid).refresh { id ->
+            runOnUiThread {
+                if (resumed && id != collarId) {
+                    detachCloudListeners()
+                    attachCloudListeners()
+                }
+            }
+        }
         clockHandler.post(refreshCollarStatus)
         if (hasBluetoothPermissions()) startFeeder() // Bluetooth backup for Feed Now
     }
@@ -123,6 +136,7 @@ class HomeActivity : Activity() {
 
     override fun onPause() {
         super.onPause()
+        resumed = false
         detachCloudListeners()
         clockHandler.removeCallbacks(refreshCollarStatus)
         stopFeeder()
@@ -275,6 +289,11 @@ class HomeActivity : Activity() {
 
     /** Collar tile: online if a reading came in the last 30 seconds. */
     private fun showCollarOnline() {
+        if (collarId == null) {
+            textConnection.text = "No collar linked"
+            textConnection.setTextColor(getColor(R.color.text_secondary))
+            return
+        }
         if (lastCollarReadingTime == 0L) {
             textConnection.text = "Waiting for the collar"
             textConnection.setTextColor(getColor(R.color.text_secondary))
@@ -304,10 +323,18 @@ class HomeActivity : Activity() {
     private fun attachCloudListeners() {
         if (collarListener != null || feedingListener != null) return
         val uid = auth.currentUser?.uid ?: return
-        val cloud = PetCloudRepository(uid)
+        collarId = CollarLink(this, uid).collarId
+        lastCollarReadingTime = 0L
+        val cloud = PetCloudRepository(uid, collarId)
         this.cloud = cloud
 
-        // Collar: newest reading (live motion, location), also saved in the history (UI-6.1)
+        if (collarId == null) {
+            showCollarOnline()
+            textActivity.text = "No collar linked"
+            findViewById<TextView>(R.id.textActivityTime).text = "Pair it in the pet profile (top right)"
+        }
+
+        // Collar: newest reading (activity, location), also saved in the history (UI-6.1)
         collarListener = cloud.listenToLatestCollar(
             onValue = { row ->
                 runOnUiThread {
@@ -316,8 +343,10 @@ class HomeActivity : Activity() {
                     showCollarOnline()
                     cloud.saveReadingToHistory(reading)
 
-                    textActivity.text = "X %.2f · Y %.2f · Z %.2f g".format(reading.ax, reading.ay, reading.az)
-                    findViewById<TextView>(R.id.textActivityTime).text = "Updated " + clock(lastCollarReadingTime)
+                    // COL-2.2: Resting / Walking / Running ("Measuring…" for the first 4 seconds)
+                    textActivity.text = reading.activityLabel() ?: "Measuring…"
+                    val pace = reading.stepsPerSecond?.let { " · %.1f steps/s".format(it) } ?: ""
+                    findViewById<TextView>(R.id.textActivityTime).text = "Updated " + clock(lastCollarReadingTime) + pace
                     if (reading.hasLocation()) lastLocation = reading
                     showLocationAndAlerts()
                 }

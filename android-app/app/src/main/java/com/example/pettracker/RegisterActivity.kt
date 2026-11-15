@@ -91,18 +91,26 @@ class RegisterActivity : Activity() {
         }
     }
 
+    /**
+     * Opens Home with the pet profile on top of it (step 1 of 2).
+     * Saving the profile opens Pair your collar (step 2, COM-4).
+     * Back or "Skip for now" lands on Home.
+     */
     private fun openHome() {
 
-        val intent = Intent(
+        val home = Intent(
             this,
             HomeActivity::class.java
         )
 
-        intent.flags =
+        home.flags =
             Intent.FLAG_ACTIVITY_NEW_TASK or
                     Intent.FLAG_ACTIVITY_CLEAR_TASK
 
-        startActivity(intent)
+        val profile = Intent(this, ProfileActivity::class.java)
+            .putExtra(ProfileActivity.EXTRA_SETUP, true)
+
+        startActivities(arrayOf(home, profile))
         finish()
     }
 }

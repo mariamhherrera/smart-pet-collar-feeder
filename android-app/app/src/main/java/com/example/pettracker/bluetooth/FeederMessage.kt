@@ -29,6 +29,12 @@ sealed class FeederReply {
     /** The scheduled meal was skipped because the daily limit was reached. */
     object ScheduledSkipped : FeederReply()
 
+    /** FD-4.3: food left in the container, 0 to 100 %. */
+    data class FoodLevel(val percent: Int) : FeederReply()
+
+    /** FD-4.3: the IR sensor has no reading yet (not plugged in, or still starting). */
+    object NoFoodLevel : FeederReply()
+
     /** The feeder refused a command because its format was wrong. */
     object BadCommand : FeederReply()
 
@@ -40,9 +46,10 @@ sealed class FeederReply {
  * The messages between the app and the feeder, as written by
  * firmware/feeder/feeder_bluetooth/feeder_bluetooth.ino:
  *
- *     app sends:      FEED  |  FEED,2  |  SCHEDULE,07:30,2  |  TIME,21:45:00  |  LIMIT,3
+ *     app sends:      FEED  |  FEED,2  |  SCHEDULE,07:30,2  |  TIME,21:45:00  |  LIMIT,3  |  LEVEL
  *     feeder replies: OK FED 3  |  ERR COOLDOWN  |  ERR DAILY LIMIT  |  OK SCHEDULE 07:30 2
- *                     OK TIME  |  OK LIMIT 3  |  ERR BAD ...  |  ERR UNKNOWN <message>
+ *                     OK TIME  |  OK LIMIT 3  |  OK LEVEL 63  |  ERR NO LEVEL
+ *                     ERR BAD ...  |  ERR UNKNOWN <message>
  *     feeder sends by itself at the scheduled time:
  *                     SCHEDULED OK FED 2  |  SCHEDULED ERR DAILY LIMIT
  *
@@ -74,6 +81,9 @@ object FeederMessage {
     /** UI-8.3: the most meals per day (1 to 6), from Settings. For example LIMIT,3. */
     @JvmStatic
     fun limitCommand(mealsPerDay: Int): String = "LIMIT,$mealsPerDay"
+
+    /** FD-4.3: asks the feeder how much food is left. It replies OK LEVEL <0 to 100>. */
+    const val LEVEL = "LEVEL"
 
     /** The TIME command with the phone's current time. */
     @JvmStatic
@@ -115,6 +125,11 @@ object FeederMessage {
             val limit = text.removePrefix("OK LIMIT ").trim().toIntOrNull() ?: return null
             return FeederReply.LimitSet(limit)
         }
+        if (text.startsWith("OK LEVEL ")) {
+            val percent = text.removePrefix("OK LEVEL ").trim().toIntOrNull() ?: return null
+            return if (percent in 0..100) FeederReply.FoodLevel(percent) else null
+        }
+        if (text == "ERR NO LEVEL") return FeederReply.NoFoodLevel
         if (text == "ERR COOLDOWN") return FeederReply.Cooldown
         if (text == "ERR DAILY LIMIT") return FeederReply.DailyLimit
         if (text.startsWith("ERR BAD")) return FeederReply.BadCommand
@@ -145,6 +160,8 @@ object FeederMessage {
             is FeederReply.LimitSet -> "Meal limit set to ${meals(reply.mealsPerDay)} a day"
             is FeederReply.ScheduledFed -> "Scheduled meal given (${meals(reply.feedsToday)} today)"
             FeederReply.ScheduledSkipped -> "Scheduled meal skipped, daily limit reached"
+            is FeederReply.FoodLevel -> "Food left: ${reply.percent}%"
+            FeederReply.NoFoodLevel -> "The feeder can't measure the food right now"
             FeederReply.BadCommand -> "The feeder refused the command"
             is FeederReply.Unknown -> "The feeder did not understand the command"
         }

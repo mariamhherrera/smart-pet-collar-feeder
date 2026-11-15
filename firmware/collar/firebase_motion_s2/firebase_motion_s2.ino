@@ -61,6 +61,11 @@ struct MotionReading {
   float gx, gy, gz;
 };
 
+struct DayTotals {
+  char date[11];
+  uint32_t seconds[3];
+};
+
 MotionReading latestMotion;
 bool haveReading = false;
 bool haveActivity = false;
@@ -79,10 +84,6 @@ void unlockData() { portEXIT_CRITICAL(&dataLock); }
 String collarId;
 String currentDate;          // "2026-11-14", or "" before the clock is known
 
-struct DayTotals {
-  char date[11];
-  uint32_t seconds[3];
-};
 DayTotals pendingDays[MAX_PENDING_DAYS];   // days that ended but are not sent yet
 int pendingCount = 0;
 

@@ -136,7 +136,7 @@ class ProfileActivity : Activity() {
     private fun confirmUnlink() {
         val id = collarLink?.collarId ?: return
         val name = petName()
-        AlertDialog.Builder(this)
+        val dialog = AlertDialog.Builder(this)
             .setTitle("Unlink $id?")
             .setMessage("Readings from this collar will stop showing for $name. You can pair it again later.")
             .setNegativeButton("Cancel", null)
@@ -153,6 +153,10 @@ class ProfileActivity : Activity() {
                 }
             }
             .show()
+
+        // The theme drew the buttons white on white: give them clear colours
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.setTextColor(getColor(R.color.heart))
+        dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.setTextColor(getColor(R.color.text_secondary))
     }
 
     private fun loadProfile() {

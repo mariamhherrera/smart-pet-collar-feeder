@@ -21,5 +21,9 @@
 
     <!-- Red: alerts and log out -->
     <color name="heart">#BA1A1A</color>
+
+    <!-- Resting on the Collar page (same blue as the Today dot) -->
+    <color name="resting">#0284C7</color>
+    <color name="resting_light">#E0F2FE</color>
     <color name="heart_light">#FFDAD6</color>
 </resources>

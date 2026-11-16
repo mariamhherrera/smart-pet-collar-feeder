@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Circle behind the activity symbol on the Collar page.
+     CollarActivity gives it the activity's light colour. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    <solid android:color="@color/white" />
+</shape>

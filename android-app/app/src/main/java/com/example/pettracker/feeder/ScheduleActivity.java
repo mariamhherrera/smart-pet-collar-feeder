@@ -68,6 +68,10 @@ public class ScheduleActivity extends Activity {
         showFoodLevel();
         findViewById(R.id.buttonCheckFood).setOnClickListener(v -> onCheckFoodClicked());
 
+        // FD-6.2: every meal, newest first
+        findViewById(R.id.buttonFeedingHistory).setOnClickListener(v ->
+                startActivity(new android.content.Intent(this, com.example.pettracker.FeedingHistoryActivity.class)));
+
         // FD-1.3: connection to the feeder, used by Save and Feed now
         feeder = new FeederConnection(this, new FeederConnection.Listener() {
             @Override

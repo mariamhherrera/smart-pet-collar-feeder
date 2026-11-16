@@ -120,7 +120,15 @@ bool firebaseLogin() {
 
   JsonDocument result;
   if (code != 200 || deserializeJson(result, response)) {
-    Serial.printf("Firebase sign-in failed. HTTP code: %d (check the email and password in secrets.h)\n", code);
+    Serial.printf("Firebase sign-in failed. HTTP code: %d\n", code);
+    if (code < 0)
+      Serial.printf("  Could not open a secure connection. Free memory: %u bytes (biggest block %u)\n",
+                    ESP.getFreeHeap(), ESP.getMaxAllocHeap());
+    else if (code == 400)
+      Serial.println("  Check FIREBASE_EMAIL, FIREBASE_PASSWORD and FIREBASE_API_KEY in secrets.h");
+    else if (code == 403)
+      Serial.println("  The API key is not allowed here: use the Web API key from the Firebase console");
+    if (code > 0) Serial.println("  " + response.substring(0, 200));
     fbToken = "";
     return false;
   }

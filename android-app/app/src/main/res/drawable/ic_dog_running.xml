@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Dog running, for "Activity now" on the Collar page.
+     White here: CollarActivity colours it (blue / teal / orange). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M5.8999999999999995,9.8 H14.700000000000001 A2.0999999999999996,2.0999999999999996 0 0 1 14.700000000000001,14 H5.8999999999999995 A2.0999999999999996,2.0999999999999996 0 0 1 5.8999999999999995,9.8 Z" />
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M14,10.4 L16,7.8 L18.8,9.2 L16.8,12 Z" />
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M15.899999999999999,8.2 A2.3,2.3 0 0 1 19.599999999999998,6.3999999999999995 L21.599999999999998,7.999999999999999 A1,1 0 0 1 21.8,9.799999999999999 L18.8,10.399999999999999 A2.3,2.3 0 0 1 15.899999999999999,8.2 Z" />
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M16.8,6.299999999999999 Q14.799999999999999,6.6 15.399999999999999,10.6 Q16.599999999999998,10.799999999999999 17.2,7.799999999999999 Z" />
+    <path
+        android:strokeColor="@android:color/white"
+        android:strokeWidth="2.0"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M15,13.4 L19.6,15.8 M14,13.8 L17.4,18 M6.8,13.6 L2.4,15.4 M8,13.8 L4.6,17.8" />
+    <path
+        android:strokeColor="@android:color/white"
+        android:strokeWidth="1.6"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M4.2,10.8 Q2.6,10.4 1.2,9" />
+</vector>

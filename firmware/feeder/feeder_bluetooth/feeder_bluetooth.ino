@@ -4,12 +4,21 @@
   FD-1.3 - Send feeding command to the feeder (schedule)
   FD-1.4 - Servo plate that gives the portions         Maria (portion_test.ino)
   FD-4   - Food level with the GP2Y0E03 IR sensor      Isabel Al-Haddad
+  COM-3.3 - Reads Feed Now and the schedule from Firebase over Wi-Fi (firebase_link.ino)
+  FD-1.7 - Gets the time from the internet               Isabel Al-Haddad
 
   Wiring:
     Servo (MG996R): signal -> GPIO 13, red -> 5 V adapter +, brown -> GND
     IR sensor (GP2Y0E03): pins 1, 4, 5 -> 3V3 | pin 3 -> GND | pin 7 (SDA) -> GPIO 21 | pin 6 (SCL) -> GPIO 22
     All grounds (adapter -, servo, IR, ESP32) connected together.
-  Libraries: ESP32Servo (by Kevin Harrington). Wire, BluetoothSerial and Preferences come with the ESP32 core.
+  Libraries: ESP32Servo (by Kevin Harrington) and ArduinoJson (by Benoit Blanchon).
+  Wire, BluetoothSerial, Preferences, WiFi and HTTPClient come with the ESP32 core.
+  Tools > Partition Scheme > "Huge APP (3MB No OTA/1MB SPIFFS)": Bluetooth + Wi-Fi do not fit in the default.
+
+  Wi-Fi and Firebase (COM-3.3): copy secrets.example.h to secrets.h (same folder) and fill it in.
+  Without secrets.h the feeder works by Bluetooth only, like before.
+  With secrets.h the feeder uses Wi-Fi. Bluetooth is the backup: it turns on only if Wi-Fi does not
+  work (not online after 45 s, or Wi-Fi lost for 2 minutes). Restart the feeder to try Wi-Fi again.
 
   Commands (one per line, from the phone or the Serial Monitor):
     FEED                 feed one medium portion
@@ -29,12 +38,28 @@
     The scheduled meal counts too, and is skipped once the limit is reached.
 */
 
+// Wi-Fi is on only if secrets.h exists (it is never pushed to GitHub)
+#if __has_include("secrets.h")
+#include "secrets.h"
+#define USE_WIFI 1
+#else
+#define USE_WIFI 0
+#endif
+
 #include <BluetoothSerial.h>
 #include <Preferences.h>
 #include <ESP32Servo.h>
 #include <Wire.h>
+#if USE_WIFI
+#include <WiFi.h>              // COM-3.3 (firebase_link.ino). Here so the Arduino IDE knows the types
+#include <WiFiClientSecure.h>
+#include <HTTPClient.h>
+#include <ArduinoJson.h>
+#include <time.h>
+#endif
 
 BluetoothSerial SerialBT;
+bool bluetoothOn = false;    // COM-3.3: with Wi-Fi, Bluetooth only starts if Wi-Fi does not work
 Preferences storage;         // saves the schedule in flash, so it survives a restart
 String btMessage = "";
 String usbMessage = "";
@@ -89,7 +114,7 @@ unsigned long lastLevelCheck = 0;
 // Sends a reply to both the phone and the Serial Monitor
 void reply(String text) {
   Serial.println(text);
-  if (SerialBT.hasClient()) {
+  if (bluetoothOn && SerialBT.hasClient()) {
     SerialBT.println(text);
   }
 }
@@ -284,6 +309,14 @@ void handleTime(String msg) {
   reply("OK TIME");
 }
 
+// Saves the most meals per day (1 to 6). Only writes to flash when it changed.
+void saveLimit(int limit) {
+  if (limit != dailyLimit) {
+    dailyLimit = limit;
+    storage.putInt("limit", limit);
+  }
+}
+
 // LIMIT,<n>   for example LIMIT,3 (UI-8.3: meals per day from the app's Settings)
 void handleLimit(String msg) {
   int limit;
@@ -291,10 +324,7 @@ void handleLimit(String msg) {
     reply("ERR BAD LIMIT");
     return;
   }
-  if (limit != dailyLimit) {      // the app sends it on every connection: only write when it changed
-    dailyLimit = limit;
-    storage.putInt("limit", limit);
-  }
+  saveLimit(limit);               // the app sends it on every connection
   reply("OK LIMIT " + String(limit));
 }
 
@@ -343,12 +373,14 @@ void checkClock() {
   bool inScheduledMinute = now >= scheduledSecond && now < scheduledSecond + 60;
   if (hasSchedule && !scheduleDoneToday && inScheduledMinute) {
     scheduleDoneToday = true;     // only once, even if it fails
-    reply("SCHEDULED " + tryToFeed(schedulePortion, false));
+    String result = tryToFeed(schedulePortion, false);
+    reply("SCHEDULED " + result);
+    reportScheduledMeal(result);  // COM-3.3: saves the meal in Firebase (firebase_link.ino)
   }
 }
 
-// Decides what to do with one full message.
-// This part stays the same if we add Firebase later.
+// Decides what to do with one full message (from Bluetooth or the Serial Monitor).
+// Commands from Firebase are handled in firebase_link.ino, with the same feeding rules.
 void handleCommand(String msg) {
   msg.toUpperCase();
 
@@ -367,6 +399,13 @@ void handleCommand(String msg) {
   } else {
     reply("ERR UNKNOWN " + msg);
   }
+}
+
+// Starts Bluetooth (the backup when there is no Wi-Fi)
+void startBluetooth() {
+  if (bluetoothOn) return;
+  bluetoothOn = SerialBT.begin("PetFeeder_ESP32");
+  Serial.println(bluetoothOn ? "Bluetooth started! Waiting for messages..." : "Bluetooth failed to start!");
 }
 
 // Reads letters from one source (Bluetooth or USB).
@@ -402,15 +441,17 @@ void setup() {
   Wire.begin(21, 22);                   // SDA, SCL
   measureFoodLevel();
 
-  if (SerialBT.begin("PetFeeder_ESP32")) {
-    Serial.println("Bluetooth started! Waiting for messages...");
-  } else {
-    Serial.println("Bluetooth failed to start!");
-  }
+#if USE_WIFI
+  // COM-3.3: Wi-Fi first. Bluetooth and a secure Wi-Fi connection do not fit in memory
+  // together, so Bluetooth only starts if Wi-Fi does not work (see firebase_link.ino).
+  firebaseSetup();
+#else
+  startBluetooth();
+#endif
 }
 
 void loop() {
-  checkForMessage(SerialBT, btMessage);   // messages from the phone
+  if (bluetoothOn) checkForMessage(SerialBT, btMessage);   // messages from the phone
   checkForMessage(Serial, usbMessage);    // messages typed in the Serial Monitor
 
   if (millis() - lastClockCheck >= 1000) { // once per second
@@ -422,4 +463,6 @@ void loop() {
     lastLevelCheck = millis();
     measureFoodLevel();
   }
+
+  firebaseLoop();    // COM-3.3: new commands, settings and status (does nothing without Wi-Fi)
 }

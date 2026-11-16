@@ -4,6 +4,10 @@ import android.Manifest
 import android.app.Activity
 import android.content.pm.PackageManager
 import android.os.Build
+import android.content.res.ColorStateList
+import android.view.View
+import android.view.animation.OvershootInterpolator
+import android.widget.ImageView
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -33,6 +37,7 @@ class CollarActivity : Activity(), BluetoothSppClient.Listener {
     private var collarListener: ValueEventListener? = null
     private var collarId: String? = null      // the collar linked to the pet (COM-4)
     private var resumed = false
+    private var shownActivity: String? = null  // to "pop" the symbol only when it changes
     private var collarClient: BluetoothSppClient? = null
     private var lastLocation: CollarReading? = null
 
@@ -120,6 +125,7 @@ class CollarActivity : Activity(), BluetoothSppClient.Listener {
         textStatus.text = "No collar linked. Pair it in the pet profile."
         textStatus.setTextColor(getColor(R.color.text_secondary))
         findViewById<TextView>(R.id.textCollarActivity).text = "No collar linked"
+        showActivitySymbol(null)
         textMotion.text = ""
         for (id in listOf(R.id.textMinutesResting, R.id.textMinutesWalking, R.id.textMinutesRunning)) {
             findViewById<TextView>(id).text = "-- min"
@@ -152,11 +158,9 @@ class CollarActivity : Activity(), BluetoothSppClient.Listener {
 
         // COL-2.2: resting / walking / running ("Measuring…" for the first 4 seconds)
         findViewById<TextView>(R.id.textCollarActivity).text = reading.activityLabel() ?: "Measuring…"
-        val pace = reading.stepsPerSecond?.let { "%.1f steps/s · ".format(it) } ?: ""
-        textMotion.text = pace + "X %.2f · Y %.2f · Z %.2f g · %s".format(
-            reading.ax, reading.ay, reading.az,
+        showActivitySymbol(reading.activity)
+        textMotion.text = "Updated " +
             android.text.format.DateFormat.getTimeFormat(this).format(Date(lastReadingTime))
-        )
 
         // COL-2.3: today's minutes of each activity, counted on the collar
         val seconds = reading.secondsToday(HistoryRange.dayKey(System.currentTimeMillis()))
@@ -257,5 +261,40 @@ class CollarActivity : Activity(), BluetoothSppClient.Listener {
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == permissionRequest && hasBluetoothPermissions()) startBluetoothBackup()
+    }
+
+    /**
+     * The symbol beside the activity word: a dog lying down (resting), walking, or running.
+     * Same colours as the dots in the Today list. It "pops" when the activity changes.
+     * Hidden when there is no activity yet (or no collar).
+     */
+    private fun showActivitySymbol(activity: String?) {
+        val symbol = findViewById<ImageView>(R.id.imageCollarActivity)
+        val style = when (activity) {
+            "resting" -> Triple(R.drawable.ic_dog_resting, R.color.resting, R.color.resting_light)
+            "walking" -> Triple(R.drawable.ic_dog_walking, R.color.primary, R.color.primary_light)
+            "running" -> Triple(R.drawable.ic_dog_running, R.color.accent, R.color.accent_light)
+            else -> null
+        }
+        if (style == null) {
+            symbol.visibility = View.GONE
+            shownActivity = null
+            return
+        }
+
+        val (image, color, lightColor) = style
+        symbol.setImageResource(image)
+        symbol.imageTintList = ColorStateList.valueOf(getColor(color))
+        symbol.backgroundTintList = ColorStateList.valueOf(getColor(lightColor))
+        symbol.visibility = View.VISIBLE
+
+        if (activity != shownActivity) {
+            // Small "pop" so the owner notices the change
+            symbol.scaleX = 0.6f
+            symbol.scaleY = 0.6f
+            symbol.animate().scaleX(1f).scaleY(1f).setDuration(350)
+                .setInterpolator(OvershootInterpolator(3f)).start()
+        }
+        shownActivity = activity
     }
 }

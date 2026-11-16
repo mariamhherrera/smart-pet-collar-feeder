@@ -250,16 +250,35 @@
                         android:layout_marginStart="10dp" />
                 </LinearLayout>
 
-                <TextView
-                    android:id="@+id/textCollarActivity"
+                <!-- Symbol (moon / walking / running) and the word beside it -->
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="No data yet"
-                    style="@style/Pt.Metric"
-                    android:textSize="26sp"
-                    android:layout_marginTop="12dp" />
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginTop="12dp">
 
-                <!-- Raw numbers from the motion sensor, handy for testing -->
+                    <ImageView
+                        android:id="@+id/imageCollarActivity"
+                        android:layout_width="44dp"
+                        android:layout_height="44dp"
+                        android:padding="9dp"
+                        android:background="@drawable/bg_activity_icon"
+                        android:layout_marginEnd="12dp"
+                        android:visibility="gone"
+                        android:contentDescription="Activity symbol" />
+
+                    <TextView
+                        android:id="@+id/textCollarActivity"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="No data yet"
+                        style="@style/Pt.Metric"
+                        android:textSize="26sp" />
+                </LinearLayout>
+
+                <!-- When the activity was last updated -->
                 <TextView
                     android:id="@+id/textCollarMotion"
                     android:layout_width="match_parent"

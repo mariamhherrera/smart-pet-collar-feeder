@@ -40,6 +40,8 @@ public class ScheduleActivity extends Activity {
     // UI-8.3: meals the feeder says it gave today ("OK FED 2" = 2), -1 = not known yet
     private int feederMealsToday = -1;
     private boolean bluetoothScheduleBackupRequired = false;
+    private PetCloudRepository statusCloud;                                   // COM-3.3
+    private com.google.firebase.database.ValueEventListener statusListener;  // COM-3.3
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -116,12 +118,25 @@ public class ScheduleActivity extends Activity {
     protected void onResume() {
         super.onResume();
         feeder.start();
+        // COM-3.3: once on Wi-Fi, the feeder writes its food level to Firebase every 30 s
+        String uid = FirebaseAuth.getInstance().getUid();
+        if (uid != null) {
+            statusCloud = new PetCloudRepository(uid);
+            statusListener = statusCloud.listenToFeederStatus(status -> {
+                Integer percent = FoodLevel.fromStatus(status);
+                if (percent != null) runOnUiThread(() -> onFoodLevel(percent));
+                return Unit.INSTANCE;
+            }, message -> Unit.INSTANCE);
+        }
     }
 
     @Override
     protected void onPause() {
         super.onPause();
         feeder.stop();
+        if (statusCloud != null && statusListener != null) statusCloud.removeFeederStatusListener(statusListener);
+        statusCloud = null;
+        statusListener = null;
     }
 
     @Override

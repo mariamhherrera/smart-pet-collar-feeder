@@ -43,3 +43,9 @@ so the activity graph only covers that time until the collar saves its own histo
 | T17c | FD-6.2 | Feeder off. Tap Feed now, then Feed, and open Feeding history right away. Wait 2 minutes. | First "Waiting for the feeder" (yellow), then "No reply from the feeder" (orange). | |
 | T17d | FD-6.2 | In Firebase, change one meal's status to "fed", and another to "failed". | They show "Given" (green) and "Failed" (red) right away. | |
 | T17e | FD-6.2 | Save a schedule for tomorrow morning. Open Feeding history. | Tomorrow's planned meal does not show (only past meals). | |
+| T18 | COM-3.3 | Feeder with secrets.h, on Wi-Fi. Open the Serial Monitor. | "Time from the internet: HH:MM" and "Signed in to Firebase!". | |
+| T18b | COM-3.3 | Phone on mobile data (Wi-Fi off). Feeder page: Feed now, Feed. | The feeder gives the portion within about 3 seconds. The meal becomes "fed" in Firebase. | |
+| T18c | COM-3.3 | Save a schedule 2 minutes from now in the app. Turn the phone off. | The feeder gives the portion at that time, and the planned meal becomes "fed". | |
+| T18d | COM-3.3 | Unplug the feeder. Tap Feed now, Feed. Plug it back in after 15 minutes. | It does not feed. The command is "expired" and the meal "failed". | |
+| T18e | COM-3.3 | Feeder on Wi-Fi. Open Home, then unplug the feeder and wait 2 minutes. | The Feeder tile goes from Online to Offline. | |
+| T18f | COM-3.3 | Feeder on Wi-Fi, open the Feeder page (no Bluetooth). | The Food left card shows the level within 30 seconds. | |

@@ -35,6 +35,7 @@ class HomeActivity : Activity() {
     private var collarListener: ValueEventListener? = null
     private var feedingListener: ValueEventListener? = null
     private var feederStatusListener: ValueEventListener? = null
+    private var lastFeederStatus: Map<String, Any>? = null
     private var collarId: String? = null   // the collar linked to the pet (COM-4)
     private var resumed = false
 
@@ -44,6 +45,7 @@ class HomeActivity : Activity() {
     private val refreshCollarStatus = object : Runnable {
         override fun run() {
             showCollarOnline()
+            showFeederOnline()   // COM-3.3: turns Offline when the feeder stops writing
             showLocationAndAlerts()
             clockHandler.postDelayed(this, 10_000L)
         }
@@ -288,6 +290,25 @@ class HomeActivity : Activity() {
     }
 
     /** Collar tile: online if a reading came in the last 30 seconds. */
+    /** Feeder tile. COM-3.3: online only if the feeder wrote its status in the last 90 s. */
+    private fun showFeederOnline() {
+        val status = lastFeederStatus
+        val text = findViewById<TextView>(R.id.textFeederConnection)
+        val connected = FeederStatus.isOnline(status, System.currentTimeMillis())
+        text.text = when {
+            status == null -> "Waiting for the feeder"
+            connected -> "Online"
+            else -> "Offline"
+        }
+        text.setTextColor(
+            when {
+                status == null -> getColor(R.color.text_secondary)
+                connected -> 0xFF15803D.toInt()
+                else -> 0xFFDC2626.toInt()
+            }
+        )
+    }
+
     private fun showCollarOnline() {
         if (collarId == null) {
             textConnection.text = "No collar linked"
@@ -358,20 +379,8 @@ class HomeActivity : Activity() {
         feederStatusListener = cloud.listenToFeederStatus(
             onValue = { status ->
                 runOnUiThread {
-                    val text = findViewById<TextView>(R.id.textFeederConnection)
-                    val connected = status?.get("connected") == true
-                    text.text = when {
-                        status == null -> "Waiting for the feeder"
-                        connected -> "Online"
-                        else -> "Offline"
-                    }
-                    text.setTextColor(
-                        when {
-                            status == null -> getColor(R.color.text_secondary)
-                            connected -> 0xFF15803D.toInt()
-                            else -> 0xFFDC2626.toInt()
-                        }
-                    )
+                    lastFeederStatus = status
+                    showFeederOnline()
                 }
             },
             onError = { }

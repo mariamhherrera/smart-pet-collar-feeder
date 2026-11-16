@@ -4,12 +4,19 @@
   FD-1.3 - Send feeding command to the feeder (schedule)
   FD-1.4 - Servo plate that gives the portions         Maria (portion_test.ino)
   FD-4   - Food level with the GP2Y0E03 IR sensor      Isabel Al-Haddad
+  COM-3.3 - Reads Feed Now and the schedule from Firebase over Wi-Fi (firebase_link.ino)
+  FD-1.7 - Gets the time from the internet               Isabel Al-Haddad
 
   Wiring:
     Servo (MG996R): signal -> GPIO 13, red -> 5 V adapter +, brown -> GND
     IR sensor (GP2Y0E03): pins 1, 4, 5 -> 3V3 | pin 3 -> GND | pin 7 (SDA) -> GPIO 21 | pin 6 (SCL) -> GPIO 22
     All grounds (adapter -, servo, IR, ESP32) connected together.
-  Libraries: ESP32Servo (by Kevin Harrington). Wire, BluetoothSerial and Preferences come with the ESP32 core.
+  Libraries: ESP32Servo (by Kevin Harrington) and ArduinoJson (by Benoit Blanchon).
+  Wire, BluetoothSerial, Preferences, WiFi and HTTPClient come with the ESP32 core.
+  Tools > Partition Scheme > "Huge APP (3MB No OTA/1MB SPIFFS)": Bluetooth + Wi-Fi do not fit in the default.
+
+  Wi-Fi and Firebase (COM-3.3): copy secrets.example.h to secrets.h (same folder) and fill it in.
+  Without secrets.h the feeder works by Bluetooth only, like before.
 
   Commands (one per line, from the phone or the Serial Monitor):
     FEED                 feed one medium portion
@@ -29,10 +36,25 @@
     The scheduled meal counts too, and is skipped once the limit is reached.
 */
 
+// Wi-Fi is on only if secrets.h exists (it is never pushed to GitHub)
+#if __has_include("secrets.h")
+#include "secrets.h"
+#define USE_WIFI 1
+#else
+#define USE_WIFI 0
+#endif
+
 #include <BluetoothSerial.h>
 #include <Preferences.h>
 #include <ESP32Servo.h>
 #include <Wire.h>
+#if USE_WIFI
+#include <WiFi.h>              // COM-3.3 (firebase_link.ino). Here so the Arduino IDE knows the types
+#include <WiFiClientSecure.h>
+#include <HTTPClient.h>
+#include <ArduinoJson.h>
+#include <time.h>
+#endif
 
 BluetoothSerial SerialBT;
 Preferences storage;         // saves the schedule in flash, so it survives a restart
@@ -284,6 +306,14 @@ void handleTime(String msg) {
   reply("OK TIME");
 }
 
+// Saves the most meals per day (1 to 6). Only writes to flash when it changed.
+void saveLimit(int limit) {
+  if (limit != dailyLimit) {
+    dailyLimit = limit;
+    storage.putInt("limit", limit);
+  }
+}
+
 // LIMIT,<n>   for example LIMIT,3 (UI-8.3: meals per day from the app's Settings)
 void handleLimit(String msg) {
   int limit;
@@ -291,10 +321,7 @@ void handleLimit(String msg) {
     reply("ERR BAD LIMIT");
     return;
   }
-  if (limit != dailyLimit) {      // the app sends it on every connection: only write when it changed
-    dailyLimit = limit;
-    storage.putInt("limit", limit);
-  }
+  saveLimit(limit);               // the app sends it on every connection
   reply("OK LIMIT " + String(limit));
 }
 
@@ -343,12 +370,14 @@ void checkClock() {
   bool inScheduledMinute = now >= scheduledSecond && now < scheduledSecond + 60;
   if (hasSchedule && !scheduleDoneToday && inScheduledMinute) {
     scheduleDoneToday = true;     // only once, even if it fails
-    reply("SCHEDULED " + tryToFeed(schedulePortion, false));
+    String result = tryToFeed(schedulePortion, false);
+    reply("SCHEDULED " + result);
+    reportScheduledMeal(result);  // COM-3.3: saves the meal in Firebase (firebase_link.ino)
   }
 }
 
-// Decides what to do with one full message.
-// This part stays the same if we add Firebase later.
+// Decides what to do with one full message (from Bluetooth or the Serial Monitor).
+// Commands from Firebase are handled in firebase_link.ino, with the same feeding rules.
 void handleCommand(String msg) {
   msg.toUpperCase();
 
@@ -407,6 +436,8 @@ void setup() {
   } else {
     Serial.println("Bluetooth failed to start!");
   }
+
+  firebaseSetup();   // COM-3.3: Wi-Fi, internet time and Firebase (does nothing without secrets.h)
 }
 
 void loop() {
@@ -422,4 +453,6 @@ void loop() {
     lastLevelCheck = millis();
     measureFoodLevel();
   }
+
+  firebaseLoop();    // COM-3.3: new commands, settings and status (does nothing without Wi-Fi)
 }

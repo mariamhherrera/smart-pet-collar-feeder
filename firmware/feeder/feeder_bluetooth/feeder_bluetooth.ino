@@ -1,7 +1,15 @@
 /*
-  FD-2.2 - Send manual feed command (feeder side)
+  PetTracker feeder: everything on one ESP32
+  FD-2.2 - Send manual feed command (feeder side)      Isabel Al-Haddad
   FD-1.3 - Send feeding command to the feeder (schedule)
-  Isabel Al-Haddad
+  FD-1.4 - Servo plate that gives the portions         Maria (portion_test.ino)
+  FD-4   - Food level with the GP2Y0E03 IR sensor      Isabel Al-Haddad
+
+  Wiring:
+    Servo (MG996R): signal -> GPIO 13, red -> 5 V adapter +, brown -> GND
+    IR sensor (GP2Y0E03): pins 1, 4, 5 -> 3V3 | pin 3 -> GND | pin 7 (SDA) -> GPIO 21 | pin 6 (SCL) -> GPIO 22
+    All grounds (adapter -, servo, IR, ESP32) connected together.
+  Libraries: ESP32Servo (by Kevin Harrington). Wire, BluetoothSerial and Preferences come with the ESP32 core.
 
   Commands (one per line, from the phone or the Serial Monitor):
     FEED                 feed one medium portion
@@ -9,7 +17,8 @@
     SCHEDULE,HH:MM,<p>   save the daily feeding time and portion
     TIME,HH:MM:SS        tell the feeder what time it is
     LIMIT,<n>            most meals per day, 1 to 6 (UI-8.3, from the app's Settings)
-    STATUS               show the saved schedule, the time and today's feeds
+    LEVEL                food left in the container, in % (reply: OK LEVEL <n>)
+    STATUS               show the saved schedule, the time, today's feeds and the food level
 
   At the scheduled time, the feeder feeds by itself and sends
     SCHEDULED OK FED <n>   or   SCHEDULED ERR DAILY LIMIT
@@ -22,6 +31,8 @@
 
 #include <BluetoothSerial.h>
 #include <Preferences.h>
+#include <ESP32Servo.h>
+#include <Wire.h>
 
 BluetoothSerial SerialBT;
 Preferences storage;         // saves the schedule in flash, so it survives a restart
@@ -53,6 +64,28 @@ long lastSecondsOfDay = 0;        // the time at the last check, to notice midni
 bool scheduleDoneToday = false;   // true once today's scheduled meal was given (or tried)
 unsigned long lastClockCheck = 0; // millis() of the last check, to check once per second
 
+// ---------- Servo plate (FD-1.4, from Maria's portion_test.ino) ----------
+const int SERVO_PIN = 13;
+const int CLOSED_ANGLE = 120;     // hole covered
+const int OPEN_ANGLE = 175;       // hole open
+const int STEP_DELAY_MS = 4;      // swing speed (bigger = slower)
+
+// How long the hole stays open for each portion. Tune these with the portion test.
+const int SMALL_OPEN_MS = 500;
+const int MEDIUM_OPEN_MS = 1000;
+const int LARGE_OPEN_MS = 1500;
+
+Servo plate;
+int plateAngle = CLOSED_ANGLE;
+
+// ---------- Food level (FD-4, GP2Y0E03 IR sensor) ----------
+const uint8_t IR_ADDRESS = 0x40;  // the sensor's I2C address (0x80 in the datasheet = 0x40 in Arduino)
+const float EMPTY_CM = 9.6;       // distance to the bottom when the container is empty
+const float FULL_CM = 3.7;        // distance to the food at the max fill line
+const unsigned long LEVEL_EVERY_MS = 5000;   // measure the food every 5 seconds
+int foodLevel = -1;               // last food level in %, -1 = no reading yet
+unsigned long lastLevelCheck = 0;
+
 // Sends a reply to both the phone and the Serial Monitor
 void reply(String text) {
   Serial.println(text);
@@ -73,10 +106,79 @@ long secondsOfDayNow() {
   return (secondsAtSync + passed) % 86400;
 }
 
-// Gives one portion of food (1 = small, 2 = medium, 3 = large).
-// The motor code (FD-1.4) goes inside this function.
+// Turns the plate slowly to an angle, 2 degrees at a time (Maria's code)
+void movePlate(int target) {
+  int step = (target > plateAngle) ? 2 : -2;
+  while (abs(target - plateAngle) > 2) {
+    plateAngle += step;
+    plate.write(plateAngle);
+    delay(STEP_DELAY_MS);
+  }
+  plateAngle = target;
+  plate.write(plateAngle);
+}
+
+// Gives one portion of food (1 = small, 2 = medium, 3 = large):
+// opens the hole, waits, closes it. Bigger portion = open longer.
 void feedOnce(int portion) {
-  Serial.println("(motor would give portion " + String(portion) + " here)");
+  int openMs = MEDIUM_OPEN_MS;
+  if (portion == 1) openMs = SMALL_OPEN_MS;
+  if (portion == 3) openMs = LARGE_OPEN_MS;
+  movePlate(OPEN_ANGLE);
+  delay(openMs);
+  movePlate(CLOSED_ANGLE);
+}
+
+// ---------- Food level helpers ----------
+
+// Reads one byte from a register of the IR sensor. Returns -1 if it does not answer.
+int readIrRegister(uint8_t reg) {
+  Wire.beginTransmission(IR_ADDRESS);
+  Wire.write(reg);
+  if (Wire.endTransmission(false) != 0) return -1;
+  Wire.requestFrom(IR_ADDRESS, (uint8_t)1);
+  return Wire.available() ? Wire.read() : -1;
+}
+
+// One distance reading in cm, or -1 if the sensor does not answer.
+float readDistanceCm() {
+  int shift = readIrRegister(0x35);     // the sensor's range setting
+  int high = readIrRegister(0x5E);      // distance, top 8 bits
+  int low = readIrRegister(0x5F);       // distance, bottom 4 bits
+  if (shift < 0 || high < 0 || low < 0) return -1;
+  int raw = (high << 4) | (low & 0x0F); // 12-bit value
+  return raw / 16.0 / (1 << shift);     // formula from the datasheet
+}
+
+// 7 readings, ignores "no reading" (60 cm or more), returns the middle one. -1 if none.
+float readDistanceStable() {
+  float good[7];
+  int count = 0;
+  for (int i = 0; i < 7; i++) {
+    float cm = readDistanceCm();
+    if (cm > 0 && cm < 60) good[count++] = cm;   // 64 cm means "nothing seen"
+    delay(20);
+  }
+  if (count == 0) return -1;
+  for (int i = 0; i < count; i++)                 // sort, then pick the middle one
+    for (int j = i + 1; j < count; j++)
+      if (good[j] < good[i]) { float t = good[i]; good[i] = good[j]; good[j] = t; }
+  return good[count / 2];
+}
+
+// Food left in %, from 0 (empty) to 100 (full). -1 if there was no reading.
+int foodLevelPercent(float cm) {
+  if (cm < 0) return -1;
+  float percent = (EMPTY_CM - cm) / (EMPTY_CM - FULL_CM) * 100.0;
+  if (percent < 0) percent = 0;         // a bit below empty: still 0%
+  if (percent > 100) percent = 100;     // a bit above the fill line: still 100%
+  return (int)(percent + 0.5);
+}
+
+// Measures the food and keeps the result in foodLevel.
+void measureFoodLevel() {
+  int level = foodLevelPercent(readDistanceStable());
+  if (level >= 0) foodLevel = level;    // keep the last good value if this reading failed
 }
 
 // Starts a new day once 24 hours have passed.
@@ -212,7 +314,15 @@ void handleStatus() {
     text += " time=unknown";
   }
   text += " feedsToday=" + String(feedsToday) + " limit=" + String(dailyLimit);
+  text += " food=" + (foodLevel >= 0 ? String(foodLevel) + "%" : String("unknown"));
   reply(text);
+}
+
+// LEVEL: food left right now, in %
+void handleLevel() {
+  measureFoodLevel();
+  if (foodLevel < 0) reply("ERR NO LEVEL");
+  else reply("OK LEVEL " + String(foodLevel));
 }
 
 // Called once per second. Starts a new day at midnight, and gives the
@@ -250,6 +360,8 @@ void handleCommand(String msg) {
     handleTime(msg);
   } else if (msg.startsWith("LIMIT,")) {
     handleLimit(msg);
+  } else if (msg == "LEVEL") {
+    handleLevel();
   } else if (msg == "STATUS") {
     handleStatus();
   } else {
@@ -281,6 +393,15 @@ void setup() {
   storage.begin("feeder", false);    // "feeder" is the name of our storage space
   loadSchedule();
 
+  // Servo plate: start closed (Maria's settings)
+  plate.setPeriodHertz(50);
+  plate.attach(SERVO_PIN, 500, 2500);   // MG996R pulse range
+  plate.write(CLOSED_ANGLE);
+
+  // IR food level sensor
+  Wire.begin(21, 22);                   // SDA, SCL
+  measureFoodLevel();
+
   if (SerialBT.begin("PetFeeder_ESP32")) {
     Serial.println("Bluetooth started! Waiting for messages...");
   } else {
@@ -295,5 +416,10 @@ void loop() {
   if (millis() - lastClockCheck >= 1000) { // once per second
     lastClockCheck = millis();
     checkClock();
+  }
+
+  if (millis() - lastLevelCheck >= LEVEL_EVERY_MS) { // food level every 5 seconds
+    lastLevelCheck = millis();
+    measureFoodLevel();
   }
 }

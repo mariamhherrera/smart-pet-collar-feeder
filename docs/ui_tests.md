@@ -38,3 +38,8 @@ so the activity graph only covers that time until the collar saves its own histo
 | T16d | FD-4.3 | Still low, tap "Check food level" 2 more times. | No new alert in Firebase (one alert per refill). After refilling and checking again, the % is no longer red. | |
 | T16e | FD-4.3 | Close the app, reopen it, open the Feeder page (feeder off). | The card still shows the % and time from the last check. | |
 | T16f | FD-4.3 | Unplug the IR sensor's SDA wire, restart the feeder, tap "Check food level". | The card says "The feeder can't measure the food. Check the IR sensor wires." The app does not crash. | |
+| T17 | FD-6.2 | Feeder page: scroll down and tap "Feeding history". | The Feeding history page opens with a back arrow. Back returns to the Feeder page. | |
+| T17b | FD-6.2 | Give 2 meals with Feed Now, a few minutes apart. Open Feeding history. | Both show under "Today", newest on top, with their time, portion and "Feed Now". | |
+| T17c | FD-6.2 | Feeder off. Tap Feed now, then Feed, and open Feeding history right away. Wait 2 minutes. | First "Waiting for the feeder" (yellow), then "No reply from the feeder" (orange). | |
+| T17d | FD-6.2 | In Firebase, change one meal's status to "fed", and another to "failed". | They show "Given" (green) and "Failed" (red) right away. | |
+| T17e | FD-6.2 | Save a schedule for tomorrow morning. Open Feeding history. | Tomorrow's planned meal does not show (only past meals). | |

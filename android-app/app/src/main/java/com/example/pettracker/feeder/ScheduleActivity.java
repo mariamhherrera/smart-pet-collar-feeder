@@ -161,7 +161,7 @@ public class ScheduleActivity extends Activity {
     /** FD-4.3: "Check food level" asks the feeder over Bluetooth. */
     private void onCheckFoodClicked() {
         if (!feeder.isConnected()) {
-            Toast.makeText(this, "Connect to the feeder by Bluetooth first", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "On Wi-Fi the feeder sends its food level by itself every 30 seconds. This button is for the Bluetooth backup.", Toast.LENGTH_LONG).show();
             return;
         }
         ((TextView) findViewById(R.id.textFoodLevelNote)).setText("Checking…");

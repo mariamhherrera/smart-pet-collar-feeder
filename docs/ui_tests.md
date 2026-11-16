@@ -49,3 +49,4 @@ so the activity graph only covers that time until the collar saves its own histo
 | T18d | COM-3.3 | Unplug the feeder. Tap Feed now, Feed. Plug it back in after 15 minutes. | It does not feed. The command is "expired" and the meal "failed". | |
 | T18e | COM-3.3 | Feeder on Wi-Fi. Open Home, then unplug the feeder and wait 2 minutes. | The Feeder tile goes from Online to Offline. | |
 | T18f | COM-3.3 | Feeder on Wi-Fi, open the Feeder page (no Bluetooth). | The Food left card shows the level within 30 seconds. | |
+| T18g | COM-3.3 | Feeder with secrets.h but the hotspot off. Restart it and wait 1 minute. | The Serial Monitor says "Wi-Fi off (could not get online in 45 s). Using Bluetooth." The app connects by Bluetooth. | |

@@ -21,6 +21,12 @@
 
 `secrets.h` is in `.gitignore`, so the passwords never go to GitHub. Without it, the feeder works by Bluetooth only.
 
+**Wi-Fi first, Bluetooth as the backup.** The ESP32 does not have enough memory for Bluetooth and a secure (https) connection at the same time (about 35 KB free with Bluetooth on, a secure connection needs 40 to 50 KB). So with `secrets.h`, Bluetooth stays off and the feeder uses Wi-Fi. Bluetooth turns on only if:
+- the feeder is not online 45 seconds after starting, or
+- Wi-Fi is lost for 2 minutes.
+
+Then Wi-Fi is turned off and the app talks to the feeder by Bluetooth, like before. Restart the feeder (EN button or unplug) to try Wi-Fi again.
+
 What the feeder reads and writes, under `owners/<your account>/`:
 
 | Every | Reads / writes | Path |

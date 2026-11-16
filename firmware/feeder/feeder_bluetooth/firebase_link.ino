@@ -4,8 +4,13 @@
   Isabel Al-Haddad
 
   This file is a second tab of feeder_bluetooth (the Arduino IDE joins the tabs).
-  It only runs when secrets.h exists (see secrets.example.h). Bluetooth keeps working
-  as the backup, with the same feeding rules (tryToFeed in feeder_bluetooth.ino).
+  It only runs when secrets.h exists (see secrets.example.h).
+
+  Wi-Fi first, Bluetooth as the backup: the ESP32 does not have enough memory for Bluetooth
+  and a secure (https) connection at the same time. So Bluetooth only starts when Wi-Fi does
+  not work: not online 45 s after starting, or Wi-Fi lost for 2 minutes. Then Wi-Fi is turned
+  off and the app uses Bluetooth, with the same feeding rules (tryToFeed). Restart the feeder
+  to try Wi-Fi again.
 
   What it does once signed in to Firebase (as the pet owner, like the app):
     every 3 s   reads owners/<you>/feeder/commands. For each new command:
@@ -35,12 +40,17 @@ const unsigned long LOGIN_EVERY_MS = 50UL * 60 * 1000;     // a sign-in lasts 1 
 const unsigned long TIME_RETRY_MS = 10000;
 const unsigned long TIME_EVERY_MS = 60UL * 60 * 1000;      // check the internet time every hour
 const long long COMMAND_TOO_OLD_MS = 10LL * 60 * 1000;     // 10 minutes
+const unsigned long FIRST_ONLINE_MS = 45000;               // Bluetooth if not online 45 s after starting
+const unsigned long WIFI_LOST_MS = 2UL * 60 * 1000;        // Bluetooth if Wi-Fi is lost for 2 minutes
 
 String fbToken = "";
 String fbUid = "";                    // the owner's account ID (owners/<fbUid>/...)
 String lastCommandKey = "";           // newest command already handled (also in flash)
 String nextScheduledFeedingId = "";   // the planned meal the app made for the next scheduled feed
 bool timeFromInternet = false;
+bool everOnline = false;              // signed in to Firebase at least once
+bool backupMode = false;              // Wi-Fi gave up, Bluetooth is on
+unsigned long wifiLostSince = 0;
 
 unsigned long lastWifiTry = 0, lastLoginMs = 0, lastLoginTry = 0;
 unsigned long lastTimeTry = 0, lastTimeSync = 0;
@@ -135,6 +145,7 @@ bool firebaseLogin() {
   fbToken = result["idToken"].as<String>();
   fbUid = result["localId"].as<String>();
   lastLoginMs = millis();
+  everOnline = true;
   Serial.println("Signed in to Firebase!");
   return fbToken.length() > 0 && fbUid.length() > 0;
 }
@@ -341,9 +352,37 @@ void firebaseSetup() {
 #endif
 }
 
+// Wi-Fi does not work: turn it off and start Bluetooth (needs the memory Wi-Fi was using)
+void switchToBluetooth(const char *why) {
+#if USE_WIFI
+  backupMode = true;
+  WiFi.disconnect(true);
+  WiFi.mode(WIFI_OFF);
+  Serial.println(String("Wi-Fi off (") + why + "). Using Bluetooth. Restart the feeder to try Wi-Fi again.");
+#endif
+  startBluetooth();
+}
+
 void firebaseLoop() {
 #if USE_WIFI
-  if (WiFi.status() != WL_CONNECTED) {
+  if (backupMode) return;                            // Bluetooth is on, Wi-Fi is off
+
+  // Not online yet 45 s after starting, or Wi-Fi lost for 2 minutes: Bluetooth backup
+  bool connected = WiFi.status() == WL_CONNECTED;
+  if (!everOnline && millis() >= FIRST_ONLINE_MS) {
+    switchToBluetooth("could not get online in 45 s");
+    return;
+  }
+  if (everOnline) {
+    if (connected) wifiLostSince = 0;
+    else if (wifiLostSince == 0) wifiLostSince = millis();
+    else if (millis() - wifiLostSince >= WIFI_LOST_MS) {
+      switchToBluetooth("Wi-Fi lost");
+      return;
+    }
+  }
+
+  if (!connected) {
     if (millis() - lastWifiTry >= WIFI_RETRY_MS) {   // try again every 30 s
       lastWifiTry = millis();
       WiFi.disconnect();

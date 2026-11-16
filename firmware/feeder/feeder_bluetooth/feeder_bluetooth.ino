@@ -17,6 +17,8 @@
 
   Wi-Fi and Firebase (COM-3.3): copy secrets.example.h to secrets.h (same folder) and fill it in.
   Without secrets.h the feeder works by Bluetooth only, like before.
+  With secrets.h the feeder uses Wi-Fi. Bluetooth is the backup: it turns on only if Wi-Fi does not
+  work (not online after 45 s, or Wi-Fi lost for 2 minutes). Restart the feeder to try Wi-Fi again.
 
   Commands (one per line, from the phone or the Serial Monitor):
     FEED                 feed one medium portion
@@ -57,6 +59,7 @@
 #endif
 
 BluetoothSerial SerialBT;
+bool bluetoothOn = false;    // COM-3.3: with Wi-Fi, Bluetooth only starts if Wi-Fi does not work
 Preferences storage;         // saves the schedule in flash, so it survives a restart
 String btMessage = "";
 String usbMessage = "";
@@ -111,7 +114,7 @@ unsigned long lastLevelCheck = 0;
 // Sends a reply to both the phone and the Serial Monitor
 void reply(String text) {
   Serial.println(text);
-  if (SerialBT.hasClient()) {
+  if (bluetoothOn && SerialBT.hasClient()) {
     SerialBT.println(text);
   }
 }
@@ -398,6 +401,13 @@ void handleCommand(String msg) {
   }
 }
 
+// Starts Bluetooth (the backup when there is no Wi-Fi)
+void startBluetooth() {
+  if (bluetoothOn) return;
+  bluetoothOn = SerialBT.begin("PetFeeder_ESP32");
+  Serial.println(bluetoothOn ? "Bluetooth started! Waiting for messages..." : "Bluetooth failed to start!");
+}
+
 // Reads letters from one source (Bluetooth or USB).
 // When a full line has arrived, it calls handleCommand().
 void checkForMessage(Stream &source, String &message) {
@@ -431,17 +441,17 @@ void setup() {
   Wire.begin(21, 22);                   // SDA, SCL
   measureFoodLevel();
 
-  if (SerialBT.begin("PetFeeder_ESP32")) {
-    Serial.println("Bluetooth started! Waiting for messages...");
-  } else {
-    Serial.println("Bluetooth failed to start!");
-  }
-
-  firebaseSetup();   // COM-3.3: Wi-Fi, internet time and Firebase (does nothing without secrets.h)
+#if USE_WIFI
+  // COM-3.3: Wi-Fi first. Bluetooth and a secure Wi-Fi connection do not fit in memory
+  // together, so Bluetooth only starts if Wi-Fi does not work (see firebase_link.ino).
+  firebaseSetup();
+#else
+  startBluetooth();
+#endif
 }
 
 void loop() {
-  checkForMessage(SerialBT, btMessage);   // messages from the phone
+  if (bluetoothOn) checkForMessage(SerialBT, btMessage);   // messages from the phone
   checkForMessage(Serial, usbMessage);    // messages typed in the Serial Monitor
 
   if (millis() - lastClockCheck >= 1000) { // once per second

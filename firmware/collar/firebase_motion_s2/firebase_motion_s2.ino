@@ -1,3 +1,4 @@
+
 /*
   Smart Pet Collar - Adafruit Feather ESP32-S2 + MPU-6500 motion sensor
 
@@ -30,6 +31,7 @@
 #include <WiFiClientSecure.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
+#include <TinyGPSPlus.h>
 #include <Preferences.h>
 #include <time.h>
 #include "secrets.h"
@@ -38,23 +40,26 @@
 // ---------- Settings ----------
 
 const uint8_t MPU_ADDR = 0x68;
-const uint8_t BATTERY_GAUGE_ADDR = 0x36;   // MAX17048 battery chip on the Feather ESP32-S2
+const uint8_t BATTERY_GAUGE_ADDR = 0x36;
 
-const uint32_t SAMPLE_INTERVAL_MS = 1000 / SAMPLE_RATE_HZ;  // 20 ms
-const uint32_t LATEST_INTERVAL_MS = 5000;     // send the newest reading
-const uint32_t DAY_INTERVAL_MS = 60000;       // send today's totals + save to flash
+// NEO-7M GPS configuration
+const int GPS_RX_PIN = 38;
+const int GPS_TX_PIN = 39;
+const uint32_t GPS_BAUD = 9600;
+const uint32_t GPS_FRESH_MS = 5000;
+
+const uint32_t SAMPLE_INTERVAL_MS = 1000 / SAMPLE_RATE_HZ;
+const uint32_t LATEST_INTERVAL_MS = 5000;
+const uint32_t DAY_INTERVAL_MS = 60000;
 const uint32_t WIFI_RETRY_MS = 15000;
 const uint32_t LOGIN_RETRY_MS = 30000;
-const uint32_t AUTH_INTERVAL_MS = 3000000;    // sign in again every 50 minutes
+const uint32_t AUTH_INTERVAL_MS = 3000000;
 
-// Montreal / Toronto time, with daylight saving time
 const char *TIME_ZONE = "EST5EDT,M3.2.0,M11.1.0";
 
 const int MAX_PENDING_DAYS = 7;
 
-// ---------- Shared between the sensor task and the main loop ----------
-// The sensor task writes these, the main loop reads them.
-// Always touch them between lockData() and unlockData().
+// ---------- Shared sensor data ----------
 
 struct MotionReading {
   float ax, ay, az;
@@ -67,27 +72,57 @@ struct DayTotals {
 };
 
 MotionReading latestMotion;
+
 bool haveReading = false;
 bool haveActivity = false;
+
 Activity currentActivity = RESTING;
 float currentPace = 0;
-uint32_t todaySeconds[3] = {0, 0, 0};   // resting, walking, running
-int batteryPercent = -1;                 // -1 = no battery chip found
+
+uint32_t todaySeconds[3] = {0, 0, 0};
+
+int batteryPercent = -1;
 float batteryVoltage = 0;
 
-portMUX_TYPE dataLock = portMUX_INITIALIZER_UNLOCKED;
-void lockData() { portENTER_CRITICAL(&dataLock); }
-void unlockData() { portEXIT_CRITICAL(&dataLock); }
+// ---------- GPS data ----------
 
-// ---------- Main loop only ----------
+TinyGPSPlus gpsParser;
+HardwareSerial gpsUart(1);
+
+struct GpsReading {
+  bool everFixed = false;
+  double latitude = 0;
+  double longitude = 0;
+  uint32_t lastFixMs = 0;
+  int satellites = -1;
+  float hdop = -1;
+  uint32_t nmeaSentences = 0;
+};
+
+GpsReading latestGps;
+
+// ---------- Shared data lock ----------
+
+portMUX_TYPE dataLock = portMUX_INITIALIZER_UNLOCKED;
+
+void lockData() {
+  portENTER_CRITICAL(&dataLock);
+}
+
+void unlockData() {
+  portEXIT_CRITICAL(&dataLock);
+}
+
+// ---------- Main variables ----------
 
 String collarId;
-String currentDate;          // "2026-11-14", or "" before the clock is known
+String currentDate;
 
-DayTotals pendingDays[MAX_PENDING_DAYS];   // days that ended but are not sent yet
+DayTotals pendingDays[MAX_PENDING_DAYS];
 int pendingCount = 0;
 
 String firebaseToken;
+
 Preferences memory;
 StepCounter steps;
 
@@ -96,77 +131,101 @@ uint32_t lastDayMs = 0;
 uint32_t lastWifiTryMs = 0;
 uint32_t lastLoginTryMs = 0;
 uint32_t lastAuthMs = 0;
+
 bool timeStarted = false;
-bool daysDue = false;        // true when the day totals should be sent
+bool daysDue = false;
 
 // ---------- Collar ID ----------
 
-// Made from the chip's Wi-Fi MAC address, so every collar is different
-// and the ID never changes. Example: PC-3C71F2
 String makeCollarId() {
-  uint64_t mac = ESP.getEfuseMac();   // 6 bytes, first byte in the lowest 8 bits
+  uint64_t mac = ESP.getEfuseMac();
+
   char id[12];
-  snprintf(id, sizeof(id), "PC-%02X%02X%02X",
-           (unsigned)((mac >> 24) & 0xFF), (unsigned)((mac >> 32) & 0xFF),
-           (unsigned)((mac >> 40) & 0xFF));
+
+  snprintf(
+    id,
+    sizeof(id),
+    "PC-%02X%02X%02X",
+    (unsigned)((mac >> 24) & 0xFF),
+    (unsigned)((mac >> 32) & 0xFF),
+    (unsigned)((mac >> 40) & 0xFF)
+  );
+
   return String(id);
 }
 
-// ---------- Motion sensor and battery (same I2C wires) ----------
+// ---------- Motion sensor ----------
 
 bool writeRegister(uint8_t reg, uint8_t value) {
   Wire.beginTransmission(MPU_ADDR);
   Wire.write(reg);
   Wire.write(value);
+
   return Wire.endTransmission() == 0;
 }
 
 int readSensorID() {
   Wire.beginTransmission(MPU_ADDR);
   Wire.write(0x75);
-  if (Wire.endTransmission(false) != 0) return -1;
-  if (Wire.requestFrom(MPU_ADDR, (uint8_t)1) != 1) return -1;
+
+  if (Wire.endTransmission(false) != 0) {
+    return -1;
+  }
+
+  if (Wire.requestFrom(MPU_ADDR, (uint8_t)1) != 1) {
+    return -1;
+  }
+
   return Wire.read();
 }
 
-// Reads a 16-bit register (high byte first)
 bool readWord(uint8_t address, uint8_t reg, uint16_t &value) {
   Wire.beginTransmission(address);
   Wire.write(reg);
-  if (Wire.endTransmission(false) != 0) return false;
-  if (Wire.requestFrom(address, (uint8_t)2) != 2) return false;
+
+  if (Wire.endTransmission(false) != 0) {
+    return false;
+  }
+
+  if (Wire.requestFrom(address, (uint8_t)2) != 2) {
+    return false;
+  }
+
   value = (Wire.read() << 8) | Wire.read();
+
   return true;
 }
 
-/*
-  Battery: the Feather ESP32-S2 has a MAX17048 chip that measures the battery.
-  Register 0x02 = voltage (78.125 microvolts per step),
-  register 0x04 = charge in percent (high byte).
-  If the chip is not there (no battery plugged in, older board),
-  the collar just does not send the battery.
-*/
+// ---------- Battery ----------
+
 void readBattery(int &percent, float &voltage) {
-  uint16_t rawVoltage, rawPercent;
+  uint16_t rawVoltage;
+  uint16_t rawPercent;
+
   if (!readWord(BATTERY_GAUGE_ADDR, 0x02, rawVoltage) ||
       !readWord(BATTERY_GAUGE_ADDR, 0x04, rawPercent)) {
+
     percent = -1;
     return;
   }
+
   voltage = rawVoltage * 78.125e-6f;
   percent = constrain(rawPercent >> 8, 0, 100);
 }
 
+// ---------- Initialize motion sensor ----------
+
 bool initializeSensor() {
-  // Turn on the Feather's I2C power
   pinMode(PIN_I2C_POWER, OUTPUT);
   digitalWrite(PIN_I2C_POWER, HIGH);
+
   delay(50);
 
   Wire.begin(SDA, SCL);
   Wire.setClock(100000);
 
   int sensorID = readSensorID();
+
   Serial.print("Sensor WHO_AM_I: 0x");
   Serial.println(sensorID, HEX);
 
@@ -175,26 +234,46 @@ bool initializeSensor() {
     return false;
   }
 
-  if (!writeRegister(0x6B, 0x00)) return false;   // wake up
+  if (!writeRegister(0x6B, 0x00)) {
+    return false;
+  }
+
   delay(100);
-  if (!writeRegister(0x1C, 0x00)) return false;   // accelerometer: +-2 g
-  if (!writeRegister(0x1B, 0x00)) return false;   // gyroscope: +-250 deg/s
+
+  if (!writeRegister(0x1C, 0x00)) {
+    return false;
+  }
+
+  if (!writeRegister(0x1B, 0x00)) {
+    return false;
+  }
 
   Serial.println("Motion sensor ready!");
+
   return true;
 }
+
+// ---------- Read motion ----------
 
 bool readMotion(MotionReading &r) {
   Wire.beginTransmission(MPU_ADDR);
   Wire.write(0x3B);
-  if (Wire.endTransmission(false) != 0) return false;
-  if (Wire.requestFrom(MPU_ADDR, (uint8_t)14) != 14) return false;
+
+  if (Wire.endTransmission(false) != 0) {
+    return false;
+  }
+
+  if (Wire.requestFrom(MPU_ADDR, (uint8_t)14) != 14) {
+    return false;
+  }
 
   int16_t rawAX = (Wire.read() << 8) | Wire.read();
   int16_t rawAY = (Wire.read() << 8) | Wire.read();
   int16_t rawAZ = (Wire.read() << 8) | Wire.read();
-  Wire.read();  // temperature, not used
+
   Wire.read();
+  Wire.read();
+
   int16_t rawGX = (Wire.read() << 8) | Wire.read();
   int16_t rawGY = (Wire.read() << 8) | Wire.read();
   int16_t rawGZ = (Wire.read() << 8) | Wire.read();
@@ -202,74 +281,175 @@ bool readMotion(MotionReading &r) {
   r.ax = rawAX / 16384.0f;
   r.ay = rawAY / 16384.0f;
   r.az = rawAZ / 16384.0f;
+
   r.gx = rawGX / 131.0f;
   r.gy = rawGY / 131.0f;
   r.gz = rawGZ / 131.0f;
+
   return true;
 }
 
-/*
-  Sensor task: runs by itself every 20 ms, even while the main loop
-  is waiting for Wi-Fi or Firebase (that can take a few seconds).
-  Without this, the step count would miss readings during every upload.
-*/
+// ---------- Motion sensor task ----------
+
 void sensorTask(void *unused) {
   TickType_t nextWake = xTaskGetTickCount();
-  int readingsSinceBattery = 10000;   // read the battery right away
+
+  int readingsSinceBattery = 10000;
 
   while (true) {
-    vTaskDelayUntil(&nextWake, pdMS_TO_TICKS(SAMPLE_INTERVAL_MS));
+    vTaskDelayUntil(
+      &nextWake,
+      pdMS_TO_TICKS(SAMPLE_INTERVAL_MS)
+    );
 
-    // Battery every 10 seconds. It is read here (not in loop) because only
-    // this task uses the I2C wires, so the two never talk at the same time.
     if (++readingsSinceBattery >= 10 * SAMPLE_RATE_HZ) {
       readingsSinceBattery = 0;
+
       int percent;
       float voltage;
+
       readBattery(percent, voltage);
+
       lockData();
+
       batteryPercent = percent;
       batteryVoltage = voltage;
+
       unlockData();
     }
 
     MotionReading r;
-    if (!readMotion(r)) continue;
 
-    float totalG = sqrtf(r.ax * r.ax + r.ay * r.ay + r.az * r.az);
+    if (!readMotion(r)) {
+      continue;
+    }
+
+    float totalG = sqrtf(
+      r.ax * r.ax +
+      r.ay * r.ay +
+      r.az * r.az
+    );
+
     bool windowDone = steps.add(totalG);
 
     lockData();
+
     latestMotion = r;
     haveReading = true;
+
     if (windowDone) {
-      // 4 more seconds of this activity today
       currentActivity = steps.activity();
       currentPace = steps.pace();
+
       todaySeconds[currentActivity] += WINDOW_SECONDS;
+
       haveActivity = true;
     }
+
     unlockData();
+  }
+}
+
+// ---------- GPS receiver task ----------
+
+void gpsTask(void *unused) {
+  uint32_t lastInfoMs = 0;
+
+  for (;;) {
+    while (gpsUart.available()) {
+      gpsParser.encode(gpsUart.read());
+    }
+
+    if (gpsParser.location.isUpdated() &&
+        gpsParser.location.isValid()) {
+
+      double lat = gpsParser.location.lat();
+      double lng = gpsParser.location.lng();
+
+      lockData();
+
+      latestGps.latitude = lat;
+      latestGps.longitude = lng;
+      latestGps.lastFixMs = millis();
+      latestGps.everFixed = true;
+
+      unlockData();
+    }
+
+    lockData();
+
+    latestGps.satellites =
+      gpsParser.satellites.isValid()
+      ? (int)gpsParser.satellites.value()
+      : -1;
+
+    latestGps.hdop =
+      gpsParser.hdop.isValid()
+      ? gpsParser.hdop.hdop()
+      : -1;
+
+    latestGps.nmeaSentences = gpsParser.passedChecksum();
+
+    unlockData();
+
+    if (millis() - lastInfoMs >= 10000) {
+      lastInfoMs = millis();
+
+      GpsReading info;
+
+      lockData();
+      info = latestGps;
+      unlockData();
+
+      bool fresh =
+        info.everFixed &&
+        (uint32_t)(millis() - info.lastFixMs) < GPS_FRESH_MS;
+
+      Serial.printf(
+        "GPS: %s, satellites %d, NMEA %lu\n",
+        fresh ? "VALID" : "NO FIX",
+        info.satellites,
+        (unsigned long)info.nmeaSentences
+      );
+
+      if (fresh) {
+        Serial.printf(
+          "GPS coordinates: %.6f, %.6f\n",
+          info.latitude,
+          info.longitude
+        );
+      }
+    }
+
+    vTaskDelay(pdMS_TO_TICKS(10));
   }
 }
 
 // ---------- Clock and days ----------
 
-// Today's date like "2026-11-14", or "" if the clock is not set yet
 String todayDate() {
   time_t now = time(nullptr);
-  if (now < 1700000000) return "";
+
+  if (now < 1700000000) {
+    return "";
+  }
 
   struct tm local;
+
   localtime_r(&now, &local);
+
   char text[11];
+
   strftime(text, sizeof(text), "%Y-%m-%d", &local);
+
   return String(text);
 }
 
-// Saves today's totals and the unsent days in flash, so a restart keeps them
+// ---------- Save activity totals ----------
+
 void saveToMemory() {
   uint32_t copy[3];
+
   lockData();
   memcpy(copy, todaySeconds, sizeof(copy));
   unlockData();
@@ -282,46 +462,71 @@ void saveToMemory() {
 
 void loadFromMemory() {
   currentDate = memory.getString("date", "");
+
   uint32_t copy[3] = {0, 0, 0};
+
   memory.getBytes("today", copy, sizeof(copy));
+
   memcpy(todaySeconds, copy, sizeof(copy));
 
   pendingCount = memory.getInt("pendingCount", 0);
-  if (pendingCount < 0 || pendingCount > MAX_PENDING_DAYS) pendingCount = 0;
+
+  if (pendingCount < 0 || pendingCount > MAX_PENDING_DAYS) {
+    pendingCount = 0;
+  }
+
   memory.getBytes("pending", pendingDays, sizeof(pendingDays));
 
-  Serial.printf("Restored %s: resting %lu s, walking %lu s, running %lu s, %d unsent days\n",
-                currentDate.isEmpty() ? "(no date)" : currentDate.c_str(),
-                (unsigned long)copy[0], (unsigned long)copy[1], (unsigned long)copy[2],
-                pendingCount);
+  Serial.printf(
+    "Restored %s: resting %lu s, walking %lu s, running %lu s, %d unsent days\n",
+    currentDate.isEmpty() ? "(no date)" : currentDate.c_str(),
+    (unsigned long)copy[0],
+    (unsigned long)copy[1],
+    (unsigned long)copy[2],
+    pendingCount
+  );
 }
 
-// Keeps a finished day until it is sent. If there are already 7, the oldest is dropped.
+// ---------- Pending days ----------
+
 void addPendingDay(const DayTotals &day) {
   if (pendingCount == MAX_PENDING_DAYS) {
-    for (int i = 1; i < MAX_PENDING_DAYS; i++) pendingDays[i - 1] = pendingDays[i];
+    for (int i = 1; i < MAX_PENDING_DAYS; i++) {
+      pendingDays[i - 1] = pendingDays[i];
+    }
+
     pendingCount--;
   }
+
   pendingDays[pendingCount++] = day;
 }
 
 void removeOldestPendingDay() {
-  for (int i = 1; i < pendingCount; i++) pendingDays[i - 1] = pendingDays[i];
+  for (int i = 1; i < pendingCount; i++) {
+    pendingDays[i - 1] = pendingDays[i];
+  }
+
   pendingCount--;
 }
 
-// At midnight: yesterday's totals wait to be sent, today starts from zero
+// ---------- New day detection ----------
+
 void checkNewDay() {
   String today = todayDate();
-  if (today.isEmpty()) return;          // clock not set yet: keep counting
 
-  if (currentDate.isEmpty()) {          // first time the clock is known
-    currentDate = today;                // what was counted so far is today's
+  if (today.isEmpty()) {
     return;
   }
-  if (today == currentDate) return;
 
-  // The clock went back (it was wrong before): keep counting, no new day
+  if (currentDate.isEmpty()) {
+    currentDate = today;
+    return;
+  }
+
+  if (today == currentDate) {
+    return;
+  }
+
   if (today < currentDate) {
     currentDate = today;
     saveToMemory();
@@ -329,137 +534,218 @@ void checkNewDay() {
   }
 
   DayTotals finished;
-  strncpy(finished.date, currentDate.c_str(), sizeof(finished.date));
+
+  strncpy(
+    finished.date,
+    currentDate.c_str(),
+    sizeof(finished.date)
+  );
+
   finished.date[10] = '\0';
 
   lockData();
-  memcpy(finished.seconds, todaySeconds, sizeof(finished.seconds));
-  todaySeconds[0] = todaySeconds[1] = todaySeconds[2] = 0;
+
+  memcpy(
+    finished.seconds,
+    todaySeconds,
+    sizeof(finished.seconds)
+  );
+
+  todaySeconds[0] = 0;
+  todaySeconds[1] = 0;
+  todaySeconds[2] = 0;
+
   unlockData();
 
   addPendingDay(finished);
-  Serial.printf("New day %s. %s will be sent to Firebase.\n", today.c_str(), finished.date);
+
+  Serial.printf(
+    "New day %s. %s will be sent to Firebase.\n",
+    today.c_str(),
+    finished.date
+  );
+
   currentDate = today;
+
   saveToMemory();
 }
 
 // ---------- Wi-Fi ----------
 
-// Does not wait: the loop checks later if it worked
 void keepWiFiConnected() {
-  if (WiFi.status() == WL_CONNECTED) return;
-  if (millis() - lastWifiTryMs < WIFI_RETRY_MS) return;
+  if (WiFi.status() == WL_CONNECTED) {
+    return;
+  }
+
+  if (millis() - lastWifiTryMs < WIFI_RETRY_MS) {
+    return;
+  }
+
   lastWifiTryMs = millis();
 
   Serial.println("No Wi-Fi. Trying to connect...");
+
   WiFi.disconnect();
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 }
 
-// ---------- Firebase ----------
+// ---------- Firebase HTTPS ----------
 
-// Checks that it is really Firebase (HTTPS certificates)
 void secureClient(WiFiClientSecure &client) {
 #if ESP_ARDUINO_VERSION_MAJOR >= 4
-  client.useBuiltinCACertBundle();   // certificates built into the ESP32 core
+  client.useBuiltinCACertBundle();
 #else
-  // Core 3.x has no built-in certificate list: the data is still encrypted,
-  // but the server is not checked. Update the ESP32 core to 4.x to fix it.
   client.setInsecure();
 #endif
 }
 
+// ---------- Firebase database URL ----------
+
 String databaseUrl(const String &path) {
   String url = String(FIREBASE_DATABASE_URL);
-  if (url.endsWith("/")) url.remove(url.length() - 1);
-  // Do not print this URL: it contains the token
+
+  if (url.endsWith("/")) {
+    url.remove(url.length() - 1);
+  }
+
   return url + "/" + path + ".json?auth=" + firebaseToken;
 }
+
+// ---------- Firebase authentication ----------
 
 bool firebaseLogin() {
   Serial.println("Signing in to Firebase...");
 
   WiFiClientSecure client;
   secureClient(client);
+
   HTTPClient http;
+
   http.setReuse(false);
   http.setTimeout(15000);
 
-  String url = "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=";
+  String url =
+    "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=";
+
   url += FIREBASE_API_KEY;
 
   if (!http.begin(client, url)) {
     Serial.println("Firebase sign-in setup failed!");
     return false;
   }
+
   http.addHeader("Content-Type", "application/json");
 
   JsonDocument login;
+
   login["email"] = FIREBASE_TEST_EMAIL;
   login["password"] = FIREBASE_TEST_PASSWORD;
   login["returnSecureToken"] = true;
+
   String body;
+
   serializeJson(login, body);
 
   int code = http.POST(body);
+
   String response = http.getString();
+
   http.end();
   client.stop();
 
   if (code == 200) {
     JsonDocument result;
+
     if (!deserializeJson(result, response)) {
       firebaseToken = result["idToken"].as<String>();
     }
   }
 
   if (code != 200 || firebaseToken.isEmpty()) {
-    Serial.printf("Firebase sign-in failed. HTTP code: %d\n", code);
+    Serial.printf(
+      "Firebase sign-in failed. HTTP code: %d\n",
+      code
+    );
+
     firebaseToken = "";
+
     return false;
   }
 
   lastAuthMs = millis();
+
   Serial.println("Signed in to Firebase!");
+
   return true;
 }
 
-// Sends JSON to Firebase. method is "PATCH" (change some fields) or "PUT" (replace).
-// Returns the HTTP code: 200 = OK, 401 = token expired.
-int sendToFirebase(const char *method, const String &path, const String &json) {
+// ---------- Firebase request ----------
+
+int sendToFirebase(
+  const char *method,
+  const String &path,
+  const String &json
+) {
   WiFiClientSecure client;
   secureClient(client);
+
   HTTPClient http;
+
   http.setReuse(false);
   http.setTimeout(15000);
 
-  if (!http.begin(client, databaseUrl(path))) return -1;
+  if (!http.begin(client, databaseUrl(path))) {
+    return -1;
+  }
+
   http.addHeader("Content-Type", "application/json");
 
   int code = http.sendRequest(method, json);
+
   if (code != 200) {
-    Serial.printf("Firebase %s %s failed. HTTP code: %d\n", method, path.c_str(), code);
-    if (code > 0) Serial.println(http.getString());
+    Serial.printf(
+      "Firebase %s %s failed. HTTP code: %d\n",
+      method,
+      path.c_str(),
+      code
+    );
+
+    if (code > 0) {
+      Serial.println(http.getString());
+    }
   }
 
   http.end();
   client.stop();
 
-  if (code == 401) firebaseToken = "";   // sign in again next time
+  if (code == 401) {
+    firebaseToken = "";
+  }
+
   return code;
 }
 
-// Every 5 seconds: newest reading, activity and today's minutes.
-// PATCH so "owner" (written by the app when pairing) is kept.
+// ---------- Upload latest collar data ----------
+
 void uploadLatest() {
   MotionReading r;
-  bool reading, activityKnown;
+
+  bool reading;
+  bool activityKnown;
+
   Activity activity;
-  float pace, voltage;
+
+  float pace;
+  float voltage;
+
   int percent;
+
   uint32_t seconds[3];
 
+  GpsReading gpsReading;
+
   lockData();
+
   r = latestMotion;
   reading = haveReading;
   activityKnown = haveActivity;
@@ -467,22 +753,34 @@ void uploadLatest() {
   pace = currentPace;
   percent = batteryPercent;
   voltage = batteryVoltage;
+
   memcpy(seconds, todaySeconds, sizeof(seconds));
+
+  gpsReading = latestGps;
+
   unlockData();
 
-  if (!reading) return;
+  if (!reading) {
+    return;
+  }
 
   JsonDocument data;
+
   JsonObject latest = data["latest"].to<JsonObject>();
+
   latest["collarId"] = collarId;
   latest["deviceTimeSeconds"] = millis() / 1000.0f;
 
-  JsonObject accel = latest["accelerationG"].to<JsonObject>();
+  JsonObject accel =
+    latest["accelerationG"].to<JsonObject>();
+
   accel["x"] = r.ax;
   accel["y"] = r.ay;
   accel["z"] = r.az;
 
-  JsonObject gyro = latest["gyroscopeDegreesPerSecond"].to<JsonObject>();
+  JsonObject gyro =
+    latest["gyroscopeDegreesPerSecond"].to<JsonObject>();
+
   gyro["x"] = r.gx;
   gyro["y"] = r.gy;
   gyro["z"] = r.gz;
@@ -491,61 +789,143 @@ void uploadLatest() {
     latest["batteryVoltage"] = voltage;
     latest["batteryPercent"] = percent;
   }
-  latest["wifiSignal"] = WiFi.RSSI();   // dBm, the app shows Good / Fair / Weak
+
+  latest["wifiSignal"] = WiFi.RSSI();
 
   if (activityKnown) {
     latest["activity"] = activityName(activity);
     latest["stepsPerSecond"] = pace;
   }
 
-  JsonObject today = latest["today"].to<JsonObject>();
+  JsonObject today =
+    latest["today"].to<JsonObject>();
+
   today["date"] = currentDate;
   today["restingSeconds"] = seconds[RESTING];
   today["walkingSeconds"] = seconds[WALKING];
   today["runningSeconds"] = seconds[RUNNING];
 
-  latest["receivedAt"][".sv"] = "timestamp";   // Firebase puts its own time here
-  data["seenAt"][".sv"] = "timestamp";         // used by the app to find the collar
+  // ---------- GPS Firebase fields ----------
+
+  JsonObject gpsJson =
+    latest["gps"].to<JsonObject>();
+
+  uint32_t fixAgeMs =
+    gpsReading.everFixed
+    ? (uint32_t)(millis() - gpsReading.lastFixMs)
+    : UINT32_MAX;
+
+  bool gpsFixFresh =
+    gpsReading.everFixed &&
+    fixAgeMs < GPS_FRESH_MS;
+
+  gpsJson["fixValid"] = gpsFixFresh;
+
+  if (gpsReading.satellites >= 0) {
+    gpsJson["satellites"] = gpsReading.satellites;
+  }
+
+  if (gpsReading.hdop >= 0) {
+    gpsJson["hdop"] = gpsReading.hdop;
+  }
+
+  if (gpsReading.everFixed) {
+    gpsJson["lastKnownLatitude"] = gpsReading.latitude;
+    gpsJson["lastKnownLongitude"] = gpsReading.longitude;
+    gpsJson["lastKnownAgeMs"] = fixAgeMs;
+
+    if (gpsFixFresh) {
+      gpsJson["latitude"] = gpsReading.latitude;
+      gpsJson["longitude"] = gpsReading.longitude;
+    }
+  }
+
+  latest["receivedAt"][".sv"] = "timestamp";
+  data["seenAt"][".sv"] = "timestamp";
 
   String json;
+
   serializeJson(data, json);
 
-  if (sendToFirebase("PATCH", "collars/" + collarId, json) == 200) {
-    Serial.printf("[%s] sent: %s, %.2f steps/s, today R %lu / W %lu / Run %lu min\n",
-                  collarId.c_str(), activityKnown ? activityName(activity) : "(first 4 s)",
-                  pace, (unsigned long)(seconds[RESTING] / 60),
-                  (unsigned long)(seconds[WALKING] / 60), (unsigned long)(seconds[RUNNING] / 60));
+  if (
+    sendToFirebase(
+      "PATCH",
+      "collars/" + collarId,
+      json
+    ) == 200
+  ) {
+    Serial.printf(
+      "[%s] sent: %s, %.2f steps/s, today R %lu / W %lu / Run %lu min\n",
+      collarId.c_str(),
+      activityKnown ? activityName(activity) : "(first 4 s)",
+      pace,
+      (unsigned long)(seconds[RESTING] / 60),
+      (unsigned long)(seconds[WALKING] / 60),
+      (unsigned long)(seconds[RUNNING] / 60)
+    );
   }
 }
+
+// ---------- Daily activity JSON ----------
 
 String dayJson(const uint32_t seconds[3]) {
   JsonDocument row;
+
   row["restingSeconds"] = seconds[RESTING];
   row["walkingSeconds"] = seconds[WALKING];
   row["runningSeconds"] = seconds[RUNNING];
+
   row["updatedAt"][".sv"] = "timestamp";
+
   String json;
+
   serializeJson(row, json);
+
   return json;
 }
 
-// Every minute: unsent finished days first (oldest first), then today
+// ---------- Upload daily totals ----------
+
 void uploadDays() {
   while (pendingCount > 0 && !firebaseToken.isEmpty()) {
     DayTotals &day = pendingDays[0];
-    String path = "collarDays/" + collarId + "/" + String(day.date);
-    if (sendToFirebase("PUT", path, dayJson(day.seconds)) != 200) return;  // try again next minute
-    Serial.printf("Sent the totals of %s\n", day.date);
+
+    String path =
+      "collarDays/" + collarId + "/" + String(day.date);
+
+    if (
+      sendToFirebase(
+        "PUT",
+        path,
+        dayJson(day.seconds)
+      ) != 200
+    ) {
+      return;
+    }
+
+    Serial.printf(
+      "Sent the totals of %s\n",
+      day.date
+    );
+
     removeOldestPendingDay();
   }
 
-  if (currentDate.isEmpty() || firebaseToken.isEmpty()) return;
+  if (currentDate.isEmpty() || firebaseToken.isEmpty()) {
+    return;
+  }
 
   uint32_t seconds[3];
+
   lockData();
   memcpy(seconds, todaySeconds, sizeof(seconds));
   unlockData();
-  sendToFirebase("PUT", "collarDays/" + collarId + "/" + currentDate, dayJson(seconds));
+
+  sendToFirebase(
+    "PUT",
+    "collarDays/" + collarId + "/" + currentDate,
+    dayJson(seconds)
+  );
 }
 
 // ---------- Setup ----------
@@ -554,36 +934,79 @@ void setup() {
   Serial.begin(115200);
   delay(1500);
 
-  // Montreal / Toronto time from the start. After a restart the chip still
-  // knows the time, so without this the date would be UTC (tomorrow after 7 PM).
   setenv("TZ", TIME_ZONE, 1);
   tzset();
 
   collarId = makeCollarId();
+
   Serial.println();
   Serial.println("==============================");
+
   Serial.print("  Smart collar ID: ");
   Serial.println(collarId);
+
   Serial.println("  (write it on the sticker)");
   Serial.println("==============================");
 
   memory.begin("collar", false);
+
   loadFromMemory();
 
-  // Without the sensor the collar has nothing to send, so keep trying
   while (!initializeSensor()) {
-    Serial.println("Check the sensor wiring. Trying again in 2 s...");
+    Serial.println(
+      "Check the sensor wiring. Trying again in 2 s..."
+    );
+
     delay(2000);
   }
 
-  // Start reading the sensor 50 times per second, in its own task
-  xTaskCreate(sensorTask, "sensor", 4096, nullptr, 2, nullptr);
+  // ---------- Start GPS ----------
+
+  gpsUart.setRxBufferSize(2048);
+
+  gpsUart.begin(
+    GPS_BAUD,
+    SERIAL_8N1,
+    GPS_RX_PIN,
+    GPS_TX_PIN
+  );
+
+  xTaskCreate(
+    gpsTask,
+    "gps",
+    4096,
+    nullptr,
+    1,
+    nullptr
+  );
+
+  Serial.println(
+    "GPS UART initialized at 9600 baud (RX 38, TX 39)"
+  );
+
+  // ---------- Start motion sensor ----------
+
+  xTaskCreate(
+    sensorTask,
+    "sensor",
+    4096,
+    nullptr,
+    2,
+    nullptr
+  );
+
+  // ---------- Start Wi-Fi ----------
 
   WiFi.mode(WIFI_STA);
   WiFi.setAutoReconnect(true);
+
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+
   lastWifiTryMs = millis();
-  Serial.println("Connecting to Wi-Fi (the collar keeps counting meanwhile)...");
+
+  Serial.println(
+    "Connecting to Wi-Fi (the collar keeps counting meanwhile)..."
+  );
 }
 
 // ---------- Main loop ----------
@@ -591,33 +1014,46 @@ void setup() {
 void loop() {
   uint32_t now = millis();
 
-  checkNewDay();   // works offline too, once the clock was set one time
+  checkNewDay();
 
-  // Once a minute, online or not: save to flash, and send the day totals when possible
   if (now - lastDayMs >= DAY_INTERVAL_MS) {
     lastDayMs = now;
+
     saveToMemory();
+
     daysDue = true;
   }
 
   keepWiFiConnected();
+
   if (WiFi.status() != WL_CONNECTED) {
     delay(10);
     return;
   }
 
-  // Ask the internet for the time once Wi-Fi works (the chip keeps it after that)
   if (!timeStarted) {
-    configTzTime(TIME_ZONE, "pool.ntp.org", "time.google.com");
+    configTzTime(
+      TIME_ZONE,
+      "pool.ntp.org",
+      "time.google.com"
+    );
+
     timeStarted = true;
   }
 
-  // Sign in (again) when needed, but not more than every 30 s if it fails
-  bool tokenOld = !firebaseToken.isEmpty() && now - lastAuthMs >= AUTH_INTERVAL_MS;
-  if ((firebaseToken.isEmpty() || tokenOld) && now - lastLoginTryMs >= LOGIN_RETRY_MS) {
+  bool tokenOld =
+    !firebaseToken.isEmpty() &&
+    now - lastAuthMs >= AUTH_INTERVAL_MS;
+
+  if (
+    (firebaseToken.isEmpty() || tokenOld) &&
+    now - lastLoginTryMs >= LOGIN_RETRY_MS
+  ) {
     lastLoginTryMs = now;
+
     firebaseLogin();
   }
+
   if (firebaseToken.isEmpty()) {
     delay(10);
     return;
@@ -625,13 +1061,16 @@ void loop() {
 
   if (now - lastLatestMs >= LATEST_INTERVAL_MS) {
     lastLatestMs = now;
+
     uploadLatest();
   }
 
   if (daysDue) {
     daysDue = false;
+
     uploadDays();
   }
 
   delay(10);
 }
+

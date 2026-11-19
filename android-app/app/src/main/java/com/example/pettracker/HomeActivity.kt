@@ -41,6 +41,7 @@ class HomeActivity : Activity() {
 
     // Collar online check: the collar sends every 5 seconds, so 30 seconds of silence = offline
     private var lastCollarReadingTime = 0L
+    private var lastBattery: Int? = null   // COM-5.2: newest battery % from the collar
     private val clockHandler = Handler(Looper.getMainLooper())
     private val refreshCollarStatus = object : Runnable {
         override fun run() {
@@ -321,7 +322,10 @@ class HomeActivity : Activity() {
             return
         }
         val online = System.currentTimeMillis() - lastCollarReadingTime < 30_000L
-        textConnection.text = if (online) "Online" else "Offline since " + clock(lastCollarReadingTime)
+        val status = if (online) "Online" else "Offline since " + clock(lastCollarReadingTime)
+        // COM-5.2: battery % next to the status, same number as the Collar page
+        val battery = lastBattery?.let { " · Battery $it%" } ?: ""
+        textConnection.text = status + battery
         textConnection.setTextColor(if (online) 0xFF15803D.toInt() else 0xFFDC2626.toInt())
     }
 
@@ -346,6 +350,7 @@ class HomeActivity : Activity() {
         val uid = auth.currentUser?.uid ?: return
         collarId = CollarLink(this, uid).collarId
         lastCollarReadingTime = 0L
+        lastBattery = null
         val cloud = PetCloudRepository(uid, collarId)
         this.cloud = cloud
 
@@ -361,6 +366,7 @@ class HomeActivity : Activity() {
                 runOnUiThread {
                     val reading = CollarReading.fromMap(row) ?: return@runOnUiThread
                     lastCollarReadingTime = if (reading.timeMillis > 0) reading.timeMillis else System.currentTimeMillis()
+                    if (reading.battery != null) lastBattery = reading.battery
                     showCollarOnline()
                     cloud.saveReadingToHistory(reading)
 

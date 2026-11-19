@@ -424,14 +424,15 @@ class HomeActivity : Activity() {
 
         when (SafeZone.status(spot, settings.homeLatitude, settings.homeLongitude, settings.safeRadius)) {
             SafeZone.Status.NO_GPS -> {
-                place.text = "No GPS yet"
+                place.text = "No GPS signal"
                 place.setTextColor(getColor(R.color.text_primary))
                 note.text = "GPS works outside or near a window"
             }
             SafeZone.Status.NO_HOME -> {
-                place.text = "Found"
+                // COL-9.4: "Found" only when the collar really sent a position (same as the Collar page)
+                place.text = if (spot != null) "Found" else "No GPS signal"
                 place.setTextColor(getColor(R.color.text_primary))
-                note.text = "Set home in Settings"
+                note.text = if (spot != null) "Set home in Settings" else "GPS works outside or near a window"
             }
             else -> {
                 val meters = SafeZone.distanceMeters(settings.homeLatitude!!, settings.homeLongitude!!,

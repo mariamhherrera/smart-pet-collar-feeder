@@ -33,6 +33,34 @@ class UiLogicTest {
         assertEquals(SafeZone.Status.OUTSIDE, SafeZone.status(at(45.4990, -73.5790), homeLat, homeLon, 100)) // ~222 m
     }
 
+    // ---------- COL-9.4 GPS from the collar firmware (inside "gps") ----------
+
+    /** A reading like the collar firmware writes it to collars/<id>/latest. */
+    private fun firmwareRow(gps: Map<String, Any>) = mapOf(
+        "accelerationG" to mapOf("x" to 0.0, "y" to 0.0, "z" to 1.0),
+        "receivedAt" to 5L,
+        "gps" to gps
+    )
+
+    @Test
+    fun readsGpsFromFirmware() {
+        val r = CollarReading.fromMap(firmwareRow(mapOf(
+            "fixValid" to true, "satellites" to 7L, "latitude" to 45.4970, "longitude" to -73.5790)))!!
+        assertTrue(r.hasLocation())
+        assertEquals(45.4970, r.latitude!!, 1e-9)
+        assertEquals(-73.5790, r.longitude!!, 1e-9)
+    }
+
+    @Test
+    fun noGpsFixMeansNoLocation() {
+        // Indoors: the firmware sends no latitude/longitude, only the last known ones
+        val r = CollarReading.fromMap(firmwareRow(mapOf(
+            "fixValid" to false, "satellites" to 0L, "hdop" to 99.99,
+            "lastKnownLatitude" to 45.4970, "lastKnownLongitude" to -73.5790)))!!
+        assertFalse(r.hasLocation())
+        assertEquals(SafeZone.Status.NO_GPS, SafeZone.status(r, 45.5, -73.6, 100))
+    }
+
     @Test
     fun safeZoneNeedsHomeAndGps() {
         assertEquals(SafeZone.Status.NO_HOME, SafeZone.status(at(45.5, -73.6), null, null, 100))

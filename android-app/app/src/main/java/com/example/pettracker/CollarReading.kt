@@ -7,7 +7,8 @@ import kotlin.math.sqrt
  * One collar reading from Firebase, whichever way it was written:
  *  - the ESP32-S2 (COM-3.2) writes {accelerationG: {x,y,z}, gyroscopeDegreesPerSecond: {x,y,z}, receivedAt}
  *  - the Bluetooth backup writes flat {ax, ay, az, gx, gy, gz, time}
- * batteryPercent, and the GPS position (COL-6: latitude, longitude), are read too when the collar sends them.
+ * batteryPercent, and the GPS position (COL-6: latitude, longitude, or COL-9.4: gps.latitude, gps.longitude),
+ * are read too when the collar sends them.
  * COL-2: the collar also sends "activity" (resting / walking / running), "stepsPerSecond",
  * and "today" = { date, restingSeconds, walkingSeconds, runningSeconds }.
  */
@@ -82,8 +83,10 @@ data class CollarReading(
             // Field names used by the collar firmware (batteryPercent), or the short ones
             val battery = number(row["batteryPercent"] ?: row["battery"])?.toInt()
             // COL-6 GPS: "latitude"/"longitude" (or "lat"/"lon"). 0,0 means no fix yet, so it is ignored.
-            var latitude = number(row["latitude"] ?: row["lat"])
-            var longitude = number(row["longitude"] ?: row["lon"])
+            // COL-9.4: the collar firmware sends them inside "gps", and only when the GPS has a fresh fix.
+            val gps = row["gps"] as? Map<*, *>
+            var latitude = number(row["latitude"] ?: row["lat"] ?: gps?.get("latitude"))
+            var longitude = number(row["longitude"] ?: row["lon"] ?: gps?.get("longitude"))
             if (latitude == 0.0 && longitude == 0.0) { latitude = null; longitude = null }
 
             // COL-2: activity and today's totals (only the new collar firmware sends them)

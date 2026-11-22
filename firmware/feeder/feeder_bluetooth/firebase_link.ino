@@ -44,7 +44,11 @@ const unsigned long FIRST_ONLINE_MS = 45000;               // Bluetooth if not o
 const unsigned long WIFI_LOST_MS = 2UL * 60 * 1000;        // Bluetooth if Wi-Fi is lost for 2 minutes
 
 String fbToken = "";
-String fbUid = "";                    // the owner's account ID (owners/<fbUid>/...)
+String fbUid = "";        // COM-7: the paired owner's account ID, "" = not paired
+String deviceUid = "";    // COM-7: the feeder's own account ID (from the sign-in)
+String feederId = "";     // COM-7: PF-XXXXXX, made from the chip
+
+
 String lastCommandKey = "";           // newest command already handled (also in flash)
 String nextScheduledFeedingId = "";   // the planned meal the app made for the next scheduled feed
 bool timeFromInternet = false;
@@ -55,6 +59,10 @@ unsigned long wifiLostSince = 0;
 unsigned long lastWifiTry = 0, lastLoginMs = 0, lastLoginTry = 0;
 unsigned long lastTimeTry = 0, lastTimeSync = 0;
 unsigned long lastCommandsMs = 0, lastSettingsMs = 0, lastStatusMs = 0;
+unsigned long lastPairCheckMs = 0, lastSeenMs = 0;            // COM-7
+const unsigned long PAIR_CHECK_UNPAIRED_MS = 5000;            // waiting to be paired: check often
+const unsigned long PAIR_CHECK_PAIRED_MS = 60000;             // paired: check if it was unpaired
+const unsigned long SEEN_EVERY_MS = 30000;                    // feeders/<ID>/seenAt
 
 // Meal results waiting to be sent (when Wi-Fi was down at that moment)
 const int WAITING_MAX = 6;
@@ -102,6 +110,15 @@ int firebaseWrite(const char *method, const String &path, const String &body) {
   return firebaseRequest(method, path, "", body, ignored);
 }
 
+// COM-7: the feeder's ID from its chip, like PF-3C71F2 (same idea as the collar's PC-XXXXXX)
+String makeFeederId() {
+  uint64_t mac = ESP.getEfuseMac();
+  char id[12];
+  snprintf(id, sizeof(id), "PF-%02X%02X%02X", (unsigned)((mac >> 24) & 0xFF),
+           (unsigned)((mac >> 32) & 0xFF), (unsigned)((mac >> 40) & 0xFF));
+  return String(id);
+}
+
 // Signs in with the owner's email and password (the same account as the app)
 bool firebaseLogin() {
   lastLoginTry = millis();
@@ -143,11 +160,12 @@ bool firebaseLogin() {
     return false;
   }
   fbToken = result["idToken"].as<String>();
-  fbUid = result["localId"].as<String>();
-  lastLoginMs = millis();
+  deviceUid = result["localId"].as<String>();
+   lastLoginMs = millis();
   everOnline = true;
   Serial.println("Signed in to Firebase!");
-  return fbToken.length() > 0 && fbUid.length() > 0;
+  return fbToken.length() > 0 && deviceUid.length() > 0;
+  
 }
 
 // FD-1.7: sets the feeder's clock from the internet time
@@ -199,12 +217,12 @@ String mealResultJson(const String &result) {
   JsonDocument meal;
   meal["status"] = result.startsWith("OK") ? "fed" : "failed";
   meal["result"] = result;
+  meal["grams"] = (int)(lastDispensedGrams + 0.5);   // FD-6.1
   meal["updatedAt"][".sv"] = "timestamp";
   String json;
   serializeJson(meal, json);
   return json;
 }
-
 void markCommand(const String &key, const char *status, const String &result) {
   JsonDocument done;
   done["status"] = status;
@@ -294,6 +312,7 @@ void checkCommands() {
 
 // The meal limit from the app's Settings, and the schedule (in case a command was missed)
 void checkSettings() {
+  if (fbUid.length() == 0) return;   // COM-7: not paired yet, no owner to read from
   lastSettingsMs = millis();
   String response;
   if (firebaseRequest("GET", ownerPath("settings/mealLimit"), "", "", response) == 200) {
@@ -320,8 +339,35 @@ void checkSettings() {
     }
   }
 }
+// COM-7: tells the app this feeder is on (feeders/<ID>/device and seenAt)
+void sendSeen() {
+  lastSeenMs = millis();
+  JsonDocument seen;
+  seen["device"] = deviceUid;
+  seen["seenAt"][".sv"] = "timestamp";
+  String json;
+  serializeJson(seen, json);
+  firebaseWrite("PATCH", "feeders/" + feederId, json);
+}
 
-// feeder/status: what the app shows (online, food left, meals today)
+// COM-7: reads who the feeder is paired with (feeders/<ID>/owner)
+void checkPairing() {
+  lastPairCheckMs = millis();
+  String response;
+  if (firebaseRequest("GET", "feeders/" + feederId + "/owner", "", "", response) != 200) return;
+  JsonDocument doc;
+  String owner = "";
+  if (!deserializeJson(doc, response) && doc.is<const char *>()) owner = doc.as<String>();
+  if (owner == fbUid) return;                        // nothing changed
+  fbUid = owner;
+  if (fbUid.length() > 0) {
+    Serial.println("Paired with the app! Using this owner's schedule and Feed Now.");
+    lastSettingsMs = 0;                              // read the schedule and meal limit now
+    lastStatusMs = 0;
+  } else {
+    Serial.println("Unpaired in the app. Pair it again on the Feeder page (ID " + feederId + ").");
+  }
+}
 void sendStatus() {
   lastStatusMs = millis();
   JsonDocument status;
@@ -330,18 +376,25 @@ void sendStatus() {
   status["feedsToday"] = feedsToday;
   status["mealLimit"] = dailyLimit;
   if (foodLevel >= 0) status["foodPercent"] = foodLevel;
+  status["bowlGrams"] = (int)(currentBowlGrams + 0.5);  // FD-3
   if (hasSchedule) status["schedule"] = twoDigits(scheduleHour) + ":" + twoDigits(scheduleMinute);
   status["timeFromInternet"] = timeFromInternet;
   String json;
   serializeJson(status, json);
   firebaseWrite("PATCH", ownerPath("feeder/status"), json);
 }
+
+
+// feeder/status: what the app shows (online, food left, meals today)
+
 #endif
 
 // ---------- Called from feeder_bluetooth.ino ----------
 
 void firebaseSetup() {
 #if USE_WIFI
+  feederId = makeFeederId();
+  Serial.println("Feeder ID: " + feederId + "  (pair it on the Feeder page of the app)");
   lastCommandKey = storage.getString("lastCmd", "");
   nextScheduledFeedingId = storage.getString("nextFeed", "");
   WiFi.mode(WIFI_STA);
@@ -400,9 +453,21 @@ void firebaseLoop() {
   if (fbToken.length() == 0 || millis() - lastLoginMs >= LOGIN_EVERY_MS) {
     if (lastLoginTry != 0 && millis() - lastLoginTry < LOGIN_RETRY_MS) return;
     if (!firebaseLogin()) return;
-    checkSettings();                                  // right after signing in
+     sendSeen();  
+    checkPairing();                              // right after signing in
   }
-
+// COM-7: let the app find the feeder, and follow pairing / unpairing
+  if (millis() - lastSeenMs >= SEEN_EVERY_MS) sendSeen();
+  if (millis() - lastPairCheckMs >= (fbUid.length() > 0 ? PAIR_CHECK_PAIRED_MS : PAIR_CHECK_UNPAIRED_MS))
+    checkPairing();
+  if (fbUid.length() == 0) {                         // not paired: nothing to read or write yet
+    static unsigned long lastReminder = 0;
+    if (millis() - lastReminder >= 30000) {
+      lastReminder = millis();
+      Serial.println("Not paired yet. In the app: Feeder page > Pair feeder > " + feederId);
+    }
+    return;
+  }
   sendWaiting();
   // Commands only once the date is known: without it, old commands could not be told apart
   // from new ones, and a Feed Now from yesterday could be given now.

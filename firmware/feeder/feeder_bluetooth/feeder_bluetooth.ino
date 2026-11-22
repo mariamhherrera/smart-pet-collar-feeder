@@ -1,17 +1,19 @@
-/*
-  PetTracker feeder: everything on one ESP32
+ /*PetTracker feeder: everything on one ESP32
   FD-2.2 - Send manual feed command (feeder side)      Isabel Al-Haddad
   FD-1.3 - Send feeding command to the feeder (schedule)
   FD-1.4 - Servo plate that gives the portions         Maria (portion_test.ino)
+  FD-3   - Weighs each meal with the bowl scale (HX711 + 5 kg load cell)    
   FD-4   - Food level with the GP2Y0E03 IR sensor      Isabel Al-Haddad
   COM-3.3 - Reads Feed Now and the schedule from Firebase over Wi-Fi (firebase_link.ino)
   FD-1.7 - Gets the time from the internet               Isabel Al-Haddad
 
-  Wiring:
+    Wiring:
     Servo (MG996R): signal -> GPIO 13, red -> 5 V adapter +, brown -> GND
     IR sensor (GP2Y0E03): pins 1, 4, 5 -> 3V3 | pin 3 -> GND | pin 7 (SDA) -> GPIO 21 | pin 6 (SCL) -> GPIO 22
-    All grounds (adapter -, servo, IR, ESP32) connected together.
-  Libraries: ESP32Servo (by Kevin Harrington) and ArduinoJson (by Benoit Blanchon).
+    HX711 + load cell: HX711 VCC -> 3V3, GND -> GND, DT -> GPIO 16, SCK -> GPIO 4    ← ADD THIS
+      Load cell: red -> E+, black -> E-, white -> A-, green -> A+
+    All grounds (adapter -, servo, IR, HX711, ESP32) connected together.
+   Libraries: ESP32Servo (by Kevin Harrington), ArduinoJson (by Benoit Blanchon) and HX711 (by Bogdan Necula).
   Wire, BluetoothSerial, Preferences, WiFi and HTTPClient come with the ESP32 core.
   Tools > Partition Scheme > "Huge APP (3MB No OTA/1MB SPIFFS)": Bluetooth + Wi-Fi do not fit in the default.
 
@@ -45,7 +47,7 @@
 #else
 #define USE_WIFI 0
 #endif
-
+#include "HX711.h"
 #include <BluetoothSerial.h>
 #include <Preferences.h>
 #include <ESP32Servo.h>
@@ -110,6 +112,22 @@ const float FULL_CM = 3.7;        // distance to the food at the max fill line
 const unsigned long LEVEL_EVERY_MS = 5000;   // measure the food every 5 seconds
 int foodLevel = -1;               // last food level in %, -1 = no reading yet
 unsigned long lastLevelCheck = 0;
+
+// ---------- FD-3: bowl scale (HX711 amplifier + 5 kg bar load cell) ----------
+// Weighs the bowl before and after each meal, so the app knows:
+//   - how many grams were actually given
+//   - that a meal failed (nothing fell, hopper empty or plate jammed)
+
+const int HX711_DT_PIN  = 16;  // HX711 data line
+const int HX711_SCK_PIN = 4;    // HX711 clock line
+const float SCALE_CAL_FACTOR = <ADD NUMBER>   // counts per gram, found with scale_calibration.ino
+const int   MIN_DISPENSED_G  = 5;             // less than this after a feed = ERR NO FOOD
+const int   SETTLE_MS        = 800;         // wait after the plate closes, so kibble stops moving
+
+HX711 bowlScale;
+float lastDispensedGrams = 0;      // grams given in the most recent meal (for Firebase)
+float currentBowlGrams = 0;        // current bowl weight (sent in the status)
+
 
 // Sends a reply to both the phone and the Serial Monitor
 void reply(String text) {
@@ -224,23 +242,42 @@ void startNewDayIfNeeded() {
 String tryToFeed(int portion, bool useCooldown) {
   startNewDayIfNeeded();
 
-  // Rule 1: too soon after the last feed
   if (useCooldown && hasFedBefore && millis() - lastFeedTime < COOLDOWN_MS) {
     return "ERR COOLDOWN";
   }
-
-  // Rule 2: already fed the maximum today (the scheduled meal counts too)
   if (feedsToday >= dailyLimit) {
     return "ERR DAILY LIMIT";
   }
 
+  // FD-3: weigh the bowl before opening the plate, so we can measure what falls
+  float beforeG = 0;
+  bool haveScale = bowlScale.is_ready();
+  if (haveScale) beforeG = bowlScale.get_units(5);
+
   feedOnce(portion);
+
+   // FD-3: wait for the kibble to stop bouncing, then weigh again.
+  // Difference = grams dispensed. If it's tiny, the meal failed (jam or empty hopper).
+  if (haveScale) {
+    delay(SETTLE_MS);
+    float afterG = bowlScale.get_units(10);
+    lastDispensedGrams = afterG - beforeG;
+    currentBowlGrams = afterG;
+    Serial.printf("FD-3: before=%.1f g, after=%.1f g, dispensed=%.1f g\n",
+                  beforeG, afterG, lastDispensedGrams);
+
+    if (lastDispensedGrams < MIN_DISPENSED_G) {
+      return "ERR NO FOOD";   // the hopper may be empty or the plate is jammed
+    }
+  } else {
+    lastDispensedGrams = 0;
+  }
+
   lastFeedTime = millis();
   hasFedBefore = true;
   feedsToday++;
   return "OK FED " + String(feedsToday);
 }
-
 // Saves the schedule in flash and in the variables.
 // The app sends the schedule every time it connects, so most of the time nothing changed:
 // then nothing is written, and today's meal is not given a second time.
@@ -438,7 +475,20 @@ void setup() {
   plate.write(CLOSED_ANGLE);
 
   // IR food level sensor
-  Wire.begin(21, 22);                   // SDA, SCL
+ Wire.begin(21, 22);                   // SDA, SCL
+
+ 
+// FD-3: bowl scale starts up and zeroes with the empty bowl on it
+bowlScale.begin(HX711_DT_PIN, HX711_SCK_PIN);
+bowlScale.set_scale(SCALE_CAL_FACTOR);
+delay(500);
+if (bowlScale.is_ready()) {
+  bowlScale.tare(20); // average of 20 readings = 0 g with whatever is on now
+  Serial.println("Bowl scale ready, tared");
+} else {
+  Serial.println("WARNING: bowl scale not responding");
+}
+
   measureFoodLevel();
 
 #if USE_WIFI

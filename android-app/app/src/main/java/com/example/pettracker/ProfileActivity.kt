@@ -132,31 +132,64 @@ class ProfileActivity : Activity() {
     private fun openPairing() {
         startActivity(Intent(this, PairCollarActivity::class.java))
     }
+    private var currentDialog: AlertDialog? = null
 
     private fun confirmUnlink() {
         val id = collarLink?.collarId ?: return
         val name = petName()
-        val dialog = AlertDialog.Builder(this)
-            .setTitle("Unlink $id?")
-            .setMessage("Readings from this collar will stop showing for $name. You can pair it again later.")
-            .setNegativeButton("Cancel", null)
-            .setPositiveButton("Unlink") { _, _ ->
-                collarLink?.unlink { error ->
-                    runOnUiThread {
-                        if (error != null) {
-                            Toast.makeText(this, error, Toast.LENGTH_LONG).show()
-                        } else {
-                            Toast.makeText(this, "Collar unlinked", Toast.LENGTH_SHORT).show()
-                            showCollar(null)
-                        }
+        showStyledDialog(
+            title = "Unpair $id?",
+            message = "Readings from this collar will stop showing for $name. You can pair it again later.",
+            confirmText = "Unpair",
+            showInput = false
+        ) {
+            collarLink?.unlink { error ->
+                runOnUiThread {
+                    if (error != null) {
+                        showDialogError(error)
+                    } else {
+                        currentDialog?.dismiss()
+                        Toast.makeText(this, "Collar unpaired", Toast.LENGTH_SHORT).show()
+                        showCollar(null)
                     }
                 }
             }
-            .show()
+        }
+    }
 
-        // The theme drew the buttons white on white: give them clear colours
-        dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.setTextColor(getColor(R.color.heart))
-        dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.setTextColor(getColor(R.color.text_secondary))
+    private fun showStyledDialog(
+        title: String,
+        message: String,
+        confirmText: String,
+        showInput: Boolean,
+        onConfirm: () -> Unit
+    ) {
+        val view = layoutInflater.inflate(R.layout.dialog_pair_feeder, null)
+        view.findViewById<TextView>(R.id.dialogTitle).text = title
+        view.findViewById<TextView>(R.id.dialogMessage).text = message
+        val input = view.findViewById<EditText>(R.id.dialogInput)
+        if (!showInput) input.visibility = View.GONE
+        val confirm = view.findViewById<Button>(R.id.dialogConfirm)
+        confirm.text = confirmText
+
+        val dialog = AlertDialog.Builder(this).setView(view).create()
+        dialog.window?.setBackgroundDrawableResource(R.drawable.bg_dialog)
+        view.findViewById<Button>(R.id.dialogCancel).setOnClickListener { dialog.dismiss() }
+        confirm.setOnClickListener { onConfirm() }
+        currentDialog = dialog
+        dialog.show()
+    }
+
+    private fun showDialogError(message: String) {
+        currentDialog?.let { d ->
+            val err = d.findViewById<TextView>(R.id.dialogError)
+            if (err != null) {
+                err.text = message
+                err.visibility = View.VISIBLE
+                return
+            }
+        }
+        Toast.makeText(this, message, Toast.LENGTH_LONG).show()
     }
 
     private fun loadProfile() {

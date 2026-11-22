@@ -9,7 +9,9 @@ import android.widget.TimePicker;
 import android.widget.Toast;
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.widget.EditText;
 
+import com.example.pettracker.FeederLink;
 import com.example.pettracker.BottomNav;
 import com.example.pettracker.FoodLevel;
 import com.example.pettracker.FoodLevelStorage;
@@ -25,6 +27,7 @@ import org.jetbrains.annotations.NotNull;
 import java.util.Date;
 import java.util.Locale;
 import kotlin.Unit;
+import android.view.View;
 
 /**FD-1.1: Screen where the owner picks the feeding time and portion.
  */
@@ -42,6 +45,8 @@ public class ScheduleActivity extends Activity {
     private boolean bluetoothScheduleBackupRequired = false;
     private PetCloudRepository statusCloud;                                   // COM-3.3
     private com.google.firebase.database.ValueEventListener statusListener;  // COM-3.3
+    private FeederLink feederLink;   // COM-7
+    private String pairedFeederId;   // COM-7: null = not paired
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -112,12 +117,18 @@ public class ScheduleActivity extends Activity {
                         Toast.LENGTH_SHORT).show();
             }
         });
+
+        // COM-7: Pair feeder / Unpair button
+        String myUid = FirebaseAuth.getInstance().getUid();
+        if (myUid != null) feederLink = new FeederLink(myUid);
+        findViewById(R.id.buttonPairFeeder).setOnClickListener(v -> onPairButtonClicked());
     }
 
     @Override
     protected void onResume() {
         super.onResume();
         feeder.start();
+        showPairing();   // COM-7
         // COM-3.3: once on Wi-Fi, the feeder writes its food level to Firebase every 30 s
         String uid = FirebaseAuth.getInstance().getUid();
         if (uid != null) {
@@ -202,6 +213,182 @@ public class ScheduleActivity extends Activity {
         note.setText(low ? "Low, refill the feeder · checked " + time : "Checked " + time);
         note.setTextColor(low ? 0xFFDC2626 : getColor(R.color.text_secondary));
     }
+    /** COM-7: shows "Paired with PF-..." or "Not paired", and the right button text. */
+    private void showPairing() {
+        if (feederLink == null) return;
+        feederLink.load(id -> {
+            pairedFeederId = id;
+            TextView text = findViewById(R.id.textFeederPairing);
+            Button button = findViewById(R.id.buttonPairFeeder);
+            if (id != null) {
+                text.setText("Paired with " + id);
+                button.setText("Unpair");
+            } else {
+                text.setText("Not paired");
+                button.setText("Pair feeder");
+            }
+            return Unit.INSTANCE;
+        });
+    }
+
+    /** COM-7: Pair if not paired, Unpair if paired. */
+    private void onPairButtonClicked() {
+        if (feederLink == null) return;
+
+        if (pairedFeederId != null) {
+            showStyledDialog("Unpair feeder?",
+                    "Feeder " + pairedFeederId + " will stop following your schedule and Feed now.",
+                    null, "Unpair", input -> {
+                        feederLink.unpair(pairedFeederId, error -> afterPairing(error));
+                        return null;
+                    });
+            return;
+        }
+
+        showStyledDialog("Pair feeder", "Looking for your feeder...", "", "Pair", null);
+
+        feederLink.findFeederThatIsOn(found -> {
+            showStyledDialog("Pair feeder",
+                    found != null
+                            ? "Feeder found nearby. Tap Pair to link it to your account."
+                            : "No feeder found. Make sure it's on and connected to Wi-Fi, or type its ID.",
+                    found != null ? found : "",
+                    "Pair",
+                    input -> {
+                        String id = feederLink.cleanId(input);
+                        if (id == null) return "That's not a feeder ID. It looks like PF-C9EDE0.";
+                        feederLink.pair(id, error -> afterPairing(error));
+                        return null;
+                    });
+            return Unit.INSTANCE;
+        });
+    }
+
+    private AlertDialog currentDialog;
+
+    private void showStyledDialog(String titleText, String messageText, String inputPrefill,
+                                  String confirmText, java.util.function.Function<String, String> onConfirm) {
+        if (currentDialog != null && currentDialog.isShowing()) currentDialog.dismiss();
+
+        View view = getLayoutInflater().inflate(R.layout.dialog_pair_feeder, null);
+        TextView title = view.findViewById(R.id.dialogTitle);
+        TextView message = view.findViewById(R.id.dialogMessage);
+        EditText input = view.findViewById(R.id.dialogInput);
+        TextView error = view.findViewById(R.id.dialogError);
+        Button cancel = view.findViewById(R.id.dialogCancel);
+        Button confirm = view.findViewById(R.id.dialogConfirm);
+
+        title.setText(titleText);
+        message.setText(messageText);
+        confirm.setText(confirmText);
+
+        if (inputPrefill == null) {
+            input.setVisibility(View.GONE);
+        } else {
+            input.setText(inputPrefill);
+        }
+
+        if (onConfirm == null) {
+            confirm.setEnabled(false);
+            confirm.setAlpha(0.5f);
+        }
+
+        AlertDialog dialog = new AlertDialog.Builder(this).setView(view).create();
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawableResource(R.drawable.bg_dialog);
+        }
+        cancel.setOnClickListener(v -> dialog.dismiss());
+        if (onConfirm != null) {
+            confirm.setOnClickListener(v -> {
+                String errMsg = onConfirm.apply(input.getText().toString());
+                if (errMsg != null) {
+                    error.setText(errMsg);
+                    error.setVisibility(View.VISIBLE);
+                } else {
+                    dialog.dismiss();
+                }
+            });
+        }
+        currentDialog = dialog;
+        dialog.show();
+    }
+
+    private Unit afterPairing(String error) {
+        if (error != null) {
+            if (currentDialog != null && currentDialog.isShowing()) {
+                TextView err = currentDialog.findViewById(R.id.dialogError);
+                if (err != null) {
+                    err.setText(error);
+                    err.setVisibility(View.VISIBLE);
+                    return Unit.INSTANCE;
+                }
+            }
+            Toast.makeText(this, error, Toast.LENGTH_LONG).show();
+        } else {
+            if (currentDialog != null) currentDialog.dismiss();
+            Toast.makeText(this, pairedFeederId == null ? "Feeder paired!" : "Feeder unpaired", Toast.LENGTH_SHORT).show();
+        }
+        showPairing();
+        return Unit.INSTANCE;
+    }
+    private void showPairDialog(String foundId) {
+        View view = getLayoutInflater().inflate(R.layout.dialog_pair_feeder, null);
+        TextView title = view.findViewById(R.id.dialogTitle);
+        TextView message = view.findViewById(R.id.dialogMessage);
+        EditText input = view.findViewById(R.id.dialogInput);
+        Button cancel = view.findViewById(R.id.dialogCancel);
+        Button confirm = view.findViewById(R.id.dialogConfirm);
+
+        title.setText("Pair feeder");
+        message.setText(foundId != null
+                ? "Feeder found nearby. Tap Pair to link it to your account."
+                : "Type your feeder's ID from the Serial Monitor.");
+        if (foundId != null) input.setText(foundId);
+        confirm.setText("Pair");
+
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setView(view).create();
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawableResource(R.drawable.bg_dialog);
+        }
+        cancel.setOnClickListener(v -> dialog.dismiss());
+        confirm.setOnClickListener(v -> {
+            String id = feederLink.cleanId(input.getText().toString());
+            if (id == null) {
+                Toast.makeText(this, "Not a feeder ID. Looks like PF-C9EDE0.", Toast.LENGTH_LONG).show();
+                return;
+            }
+            dialog.dismiss();
+            feederLink.pair(id, error -> afterPairing(error));
+        });
+        dialog.show();
+    }
+
+    private void showUnpairDialog() {
+        View view = getLayoutInflater().inflate(R.layout.dialog_pair_feeder, null);
+        view.findViewById(R.id.dialogInput).setVisibility(View.GONE);
+        TextView title = view.findViewById(R.id.dialogTitle);
+        TextView message = view.findViewById(R.id.dialogMessage);
+        Button cancel = view.findViewById(R.id.dialogCancel);
+        Button confirm = view.findViewById(R.id.dialogConfirm);
+
+        title.setText("Unpair feeder?");
+        message.setText("Feeder " + pairedFeederId + " will stop following your schedule and Feed now.");
+        confirm.setText("Unpair");
+
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setView(view).create();
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawableResource(R.drawable.bg_dialog);
+        }
+        cancel.setOnClickListener(v -> dialog.dismiss());
+        confirm.setOnClickListener(v -> {
+            dialog.dismiss();
+            feederLink.unpair(pairedFeederId, error -> afterPairing(error));
+        });
+        dialog.show();
+    }
+
 
     /** Green "Feeder connected" or red "Feeder not connected" at the top of the screen. */
     private void showFeederStatus(boolean connected) {

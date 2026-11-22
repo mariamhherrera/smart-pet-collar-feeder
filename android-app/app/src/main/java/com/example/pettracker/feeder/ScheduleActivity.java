@@ -136,6 +136,11 @@ public class ScheduleActivity extends Activity {
             statusListener = statusCloud.listenToFeederStatus(status -> {
                 Integer percent = FoodLevel.fromStatus(status);
                 if (percent != null) runOnUiThread(() -> onFoodLevel(percent));
+
+                // FD-3: show the current bowl weight
+                Number grams = status != null ? (Number) status.get("bowlGrams") : null;
+                runOnUiThread(() -> showBowlWeight(grams != null ? grams.intValue() : null));
+
                 return Unit.INSTANCE;
             }, message -> Unit.INSTANCE);
         }
@@ -230,6 +235,17 @@ public class ScheduleActivity extends Activity {
             return Unit.INSTANCE;
         });
     }
+    /** FD-3: shows the bowl weight in the Smart feeder card, or hides it if none yet. */
+    private void showBowlWeight(Integer grams) {
+        TextView view = findViewById(R.id.textBowlWeight);
+        if (grams == null) {
+            view.setVisibility(View.GONE);
+        } else {
+            view.setText("Bowl: " + grams + " g");
+            view.setVisibility(View.VISIBLE);
+        }
+    }
+
 
     /** COM-7: Pair if not paired, Unpair if paired. */
     private void onPairButtonClicked() {

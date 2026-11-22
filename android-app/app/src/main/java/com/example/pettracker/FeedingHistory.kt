@@ -14,7 +14,7 @@ object FeedingHistory {
 
     enum class State { GIVEN, WAITING, NO_REPLY, FAILED }
 
-    data class Meal(val time: Long, val portion: Int, val source: String, val state: State)
+    data class Meal(val time: Long, val portion: Int, val source: String, val state: State, val grams: Int?)
 
     /** A meal still pending after 2 minutes probably never reached the feeder. */
     const val NO_REPLY_AFTER_MS = 2 * 60_000L
@@ -37,7 +37,8 @@ object FeedingHistory {
                 else -> State.WAITING
             }
             val portion = (row["portion"] as? Number)?.toInt() ?: 2
-            Meal(time, portion, row["source"]?.toString() ?: "", state)
+            val grams = (row["grams"] as? Number)?.toInt()
+            Meal(time, portion, row["source"]?.toString() ?: "", state, grams)
         }.sortedByDescending { it.time }
 
     /** Meals grouped by day (midnight of that day), newest day first. */

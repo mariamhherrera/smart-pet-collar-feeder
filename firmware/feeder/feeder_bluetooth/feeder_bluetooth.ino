@@ -254,7 +254,7 @@ String tryToFeed(int portion, bool useCooldown) {
   bool haveScale = bowlScale.is_ready();
   if (haveScale) beforeG = bowlScale.get_units(5);
 
-  feedOnce(portion);
+  feedOnce(portion);    
 
    // FD-3: wait for the kibble to stop bouncing, then weigh again.
   // Difference = grams dispensed. If it's tiny, the meal failed (jam or empty hopper).

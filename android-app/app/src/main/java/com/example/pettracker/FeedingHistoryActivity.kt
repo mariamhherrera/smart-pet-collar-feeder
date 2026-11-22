@@ -108,7 +108,8 @@ class FeedingHistoryActivity : Activity() {
         time.setTypeface(time.typeface, Typeface.BOLD)
         time.setTextColor(getColor(R.color.text_primary))
         val detail = TextView(this, null, 0, R.style.Pt_Body)
-        detail.text = "${FeedingHistory.portionName(meal.portion)} portion · ${FeedingHistory.sourceName(meal.source)}"
+        val gramsPart = if (meal.grams != null && meal.grams > 0) " · ${meal.grams} g" else ""
+        detail.text = "${FeedingHistory.portionName(meal.portion)} portion$gramsPart · ${FeedingHistory.sourceName(meal.source)}"
         left.addView(time)
         left.addView(detail)
 

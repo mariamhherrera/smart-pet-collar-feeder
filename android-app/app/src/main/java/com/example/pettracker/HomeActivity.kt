@@ -63,7 +63,7 @@ class HomeActivity : Activity() {
     private val feederSender = Executors.newSingleThreadExecutor() // sending can block, so not on the main thread
     private lateinit var textFeeder: TextView
     private lateinit var buttonFeedNow: Button
-    private lateinit var textFeedHistory: TextView
+
     private lateinit var feedPortionGroup: RadioGroup
     private lateinit var textMealsToday: TextView
 
@@ -83,7 +83,6 @@ class HomeActivity : Activity() {
         textConnection = findViewById(R.id.textConnection)
         textActivity = findViewById(R.id.textActivity)
         textFeeder = findViewById(R.id.textFeeder)
-        textFeedHistory = findViewById(R.id.textFeedHistory)
         textMealsToday = findViewById(R.id.textMealsToday)
         buttonFeedNow = findViewById(R.id.buttonFeedNow)
         feedPortionGroup = findViewById(R.id.homeFeedPortionGroup)
@@ -94,8 +93,8 @@ class HomeActivity : Activity() {
         BottomNav.setUp(this, BottomNav.HOME)
 
         // Shortcut from the Next meal card to the feeding schedule
-        findViewById<Button>(R.id.buttonSchedule).setOnClickListener {
-            startActivity(Intent(this, ScheduleActivity::class.java))
+        findViewById<Button>(R.id.buttonSeeHistory).setOnClickListener {
+            startActivity(Intent(this, FeedingHistoryActivity::class.java))
         }
 
         showPetInformation()
@@ -398,13 +397,6 @@ class HomeActivity : Activity() {
                 runOnUiThread {
                     mealsToday = MealLimit.mealsToday(rows)
                     showMealsToday()
-                    val shown = rows.filter { it["status"]?.toString() != "scheduled" }.take(3)
-                    textFeedHistory.text = if (shown.isEmpty()) "No meals recorded yet" else shown.joinToString("\n") { row ->
-                        val time = (row["time"] as? Number)?.toLong() ?: 0L
-                        val whenText = if (time > 0) clock(time) else "Time pending"
-                        val status = row["status"]?.toString()?.replaceFirstChar { it.uppercase() } ?: "Unknown"
-                        "$whenText  ·  ${portionName(row["portion"])}  ·  $status"
-                    }
                 }
             },
             onError = { message -> runOnUiThread { textFeeder.text = "Firebase feed history error: $message" } }

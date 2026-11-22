@@ -3,6 +3,7 @@
      Top bar and bottom bar are shared with the other main pages. -->
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
@@ -101,8 +102,8 @@
                                 android:padding="8dp"
                                 android:background="@drawable/bg_icon_teal"
                                 android:src="@drawable/ic_pets"
-                                android:tint="@color/primary"
-                                android:contentDescription="Collar" />
+                                android:contentDescription="Collar"
+                                app:tint="@color/primary" />
 
                             <TextView
                                 android:layout_width="wrap_content"
@@ -148,8 +149,8 @@
                                 android:padding="8dp"
                                 android:background="@drawable/bg_icon_orange"
                                 android:src="@drawable/ic_restaurant"
-                                android:tint="@color/accent"
-                                android:contentDescription="Feeder" />
+                                android:contentDescription="Feeder"
+                                app:tint="@color/accent" />
 
                             <TextView
                                 android:layout_width="wrap_content"
@@ -201,8 +202,8 @@
                             style="@style/Pt.Icon"
                             android:background="@drawable/bg_icon_teal"
                             android:src="@drawable/ic_location_on"
-                            android:tint="@color/primary"
-                            android:contentDescription="Location" />
+                            android:contentDescription="Location"
+                            app:tint="@color/primary" />
 
                         <TextView
                             android:layout_width="wrap_content"
@@ -255,8 +256,8 @@
                             style="@style/Pt.Icon"
                             android:background="@drawable/bg_icon_orange"
                             android:src="@drawable/ic_restaurant"
-                            android:tint="@color/accent"
-                            android:contentDescription="Next meal" />
+                            android:contentDescription="Next meal"
+                            app:tint="@color/accent" />
 
                         <TextView
                             android:layout_width="wrap_content"
@@ -395,8 +396,8 @@
                     android:padding="11dp"
                     android:background="@drawable/bg_icon_teal"
                     android:src="@drawable/ic_directions_run"
-                    android:tint="@color/primary"
-                    android:contentDescription="Activity" />
+                    android:contentDescription="Activity"
+                    app:tint="@color/primary" />
 
                 <LinearLayout
                     android:layout_width="0dp"
@@ -430,29 +431,56 @@
                 </LinearLayout>
             </LinearLayout>
 
-            <!-- ===== Recent meals, from Firebase ===== -->
+            <!-- ===== Last meal, from Firebase ===== -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Recent meals"
+                android:text="Last meal"
                 style="@style/Pt.Label"
                 android:layout_marginTop="24dp"
                 android:layout_marginBottom="8dp"
                 android:layout_marginStart="4dp" />
 
-            <TextView
-                android:id="@+id/textFeedHistory"
+            <LinearLayout
                 style="@style/Pt.Card"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="No meals recorded yet"
-                android:textSize="14sp"
-                android:textColor="@color/text_primary"
-                android:fontFamily="@font/plus_jakarta_sans_medium"
-                android:lineSpacingExtra="6dp" />
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/textLastMealTime"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="No meals recorded yet"
+                    android:textSize="18sp"
+                    android:textColor="@color/text_primary"
+                    android:fontFamily="@font/plus_jakarta_sans_semibold" />
+
+                <TextView
+                    android:id="@+id/textLastMealDetail"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text=""
+                    android:textSize="14sp"
+                    android:textColor="@color/text_secondary"
+                    android:layout_marginTop="2dp"
+                    android:visibility="gone" />
+
+                <Button
+                    android:id="@+id/buttonSeeHistory"
+                    style="@style/Pt.RowButton"
+                    android:layout_height="44dp"
+                    android:gravity="center"
+                    android:text="See all feedings  ›"
+                    android:textSize="13sp"
+                    android:textColor="@color/primary"
+                    android:background="@drawable/bg_tile"
+                    android:layout_marginTop="14dp" />
+            </LinearLayout>
 
         </LinearLayout>
     </ScrollView>
 
     <include layout="@layout/bottom_nav" />
 </LinearLayout>
+

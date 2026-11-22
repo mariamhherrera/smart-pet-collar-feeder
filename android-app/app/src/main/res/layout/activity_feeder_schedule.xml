@@ -43,7 +43,7 @@
                 android:background="@drawable/bg_icon_orange"
                 android:src="@drawable/ic_restaurant"
                 android:contentDescription="Feeder"
-                app:tint="@color/accent" />
+                android:tint="@color/accent" />
 
                 <LinearLayout
                     android:layout_width="0dp"
@@ -118,7 +118,7 @@
                         android:background="@drawable/bg_icon_orange"
                         android:src="@drawable/ic_inventory_2"
                         android:contentDescription="Food level"
-                        app:tint="@color/accent" />
+                        android:tint="@color/accent" />
 
                     <TextView
                         android:layout_width="0dp"

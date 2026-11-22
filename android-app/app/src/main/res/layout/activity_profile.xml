@@ -283,6 +283,79 @@
                 </LinearLayout>
             </LinearLayout>
 
+            <!-- First setup only: most meals per day (same setting as Settings, UI-8.3).
+                 Changed later in Settings. -->
+            <LinearLayout
+                android:id="@+id/cardSetupMealLimit"
+                style="@style/Pt.Card"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Meals per day"
+                            style="@style/Pt.Title" />
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Feed Now stops at this number. You can change it later in Settings."
+                            style="@style/Pt.Body"
+                            android:textSize="12sp" />
+                    </LinearLayout>
+
+                    <Button
+                        android:id="@+id/buttonSetupMealMinus"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:minWidth="0dp"
+                        android:minHeight="0dp"
+                        android:padding="0dp"
+                        android:text="−"
+                        android:textSize="22sp"
+                        android:textColor="@color/primary"
+                        android:background="@drawable/bg_tile"
+                        android:stateListAnimator="@null" />
+
+                    <TextView
+                        android:id="@+id/textSetupMealLimit"
+                        android:layout_width="44dp"
+                        android:layout_height="wrap_content"
+                        android:gravity="center"
+                        android:text="3"
+                        style="@style/Pt.Metric"
+                        android:textSize="22sp" />
+
+                    <Button
+                        android:id="@+id/buttonSetupMealPlus"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:minWidth="0dp"
+                        android:minHeight="0dp"
+                        android:padding="0dp"
+                        android:text="+"
+                        android:textSize="22sp"
+                        android:textColor="@color/primary"
+                        android:background="@drawable/bg_tile"
+                        android:stateListAnimator="@null" />
+                </LinearLayout>
+            </LinearLayout>
+
             <Button
                 android:id="@+id/buttonSaveProfile"
                 android:layout_width="match_parent"
@@ -291,6 +364,16 @@
                 android:textSize="16sp"
                 android:stateListAnimator="@null"
                 android:layout_marginTop="20dp" />
+
+            <!-- Same as Log out in Settings -->
+            <Button
+                android:id="@+id/buttonProfileLogout"
+                style="@style/Pt.RowButton"
+                android:text="Log out"
+                android:textColor="@color/heart"
+                android:drawableStart="@drawable/ic_logout"
+                android:drawableTint="@color/heart"
+                android:layout_marginTop="12dp" />
 
         </LinearLayout>
     </ScrollView>

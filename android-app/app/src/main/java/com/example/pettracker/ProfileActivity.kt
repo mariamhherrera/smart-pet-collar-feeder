@@ -36,6 +36,7 @@ class ProfileActivity : Activity() {
     private lateinit var editWeight: EditText
     private lateinit var editAge: EditText
     private lateinit var editHealth: EditText
+    private var setupMealLimit = SettingsStorage.DEFAULT_MEAL_LIMIT   // first setup only
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -75,6 +76,16 @@ class ProfileActivity : Activity() {
 
         buttonSave.setOnClickListener {
             saveProfile()
+        }
+
+        // First setup only: meals per day, the same limit as in Settings (changed there later)
+        if (setup) setUpMealLimit()
+
+        // Log out, same as in Settings
+        findViewById<Button>(R.id.buttonProfileLogout).setOnClickListener {
+            auth.signOut()
+            Toast.makeText(this, "Logged out successfully", Toast.LENGTH_SHORT).show()
+            returnToLogin()
         }
 
     }
@@ -192,6 +203,29 @@ class ProfileActivity : Activity() {
         Toast.makeText(this, message, Toast.LENGTH_LONG).show()
     }
 
+    /** Shows the Meals per day card with its - and + buttons (1 to 6). */
+    private fun setUpMealLimit() {
+        setupMealLimit = SettingsStorage(this).mealLimit
+        val text = findViewById<TextView>(R.id.textSetupMealLimit)
+        text.text = setupMealLimit.toString()
+        findViewById<View>(R.id.cardSetupMealLimit).visibility = View.VISIBLE
+        findViewById<Button>(R.id.buttonSetupMealMinus).setOnClickListener {
+            if (setupMealLimit > 1) setupMealLimit--
+            text.text = setupMealLimit.toString()
+        }
+        findViewById<Button>(R.id.buttonSetupMealPlus).setOnClickListener {
+            if (setupMealLimit < SettingsStorage.MAX_MEAL_LIMIT) setupMealLimit++
+            text.text = setupMealLimit.toString()
+        }
+    }
+
+    /** Saves the first-setup meal limit like Settings does: on the phone, then a copy in Firebase. */
+    private fun saveSetupMealLimit(uid: String) {
+        val settings = SettingsStorage(this)
+        settings.mealLimit = setupMealLimit
+        PetCloudRepository(uid).saveSettings(settings.toMap()) { }
+    }
+
     private fun loadProfile() {
 
         val uid = auth.currentUser?.uid ?: return
@@ -290,8 +324,9 @@ class ProfileActivity : Activity() {
                 Toast.LENGTH_SHORT
             ).show()
 
-            // Right after registering: step 2, pair the collar (COM-4)
+            // Right after registering: save the meal limit, then step 2, pair the collar (COM-4)
             if (setup) {
+                saveSetupMealLimit(uid)
                 startActivity(
                     Intent(this, PairCollarActivity::class.java)
                         .putExtra(PairCollarActivity.EXTRA_SETUP, true)

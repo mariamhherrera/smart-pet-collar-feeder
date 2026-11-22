@@ -13,6 +13,7 @@ import android.widget.EditText;
 
 import com.example.pettracker.FeederLink;
 import com.example.pettracker.BottomNav;
+import com.example.pettracker.FeederStatus;
 import com.example.pettracker.FoodLevel;
 import com.example.pettracker.FoodLevelStorage;
 import com.example.pettracker.MealLimit;
@@ -47,6 +48,17 @@ public class ScheduleActivity extends Activity {
     private com.google.firebase.database.ValueEventListener statusListener;  // COM-3.3
     private FeederLink feederLink;   // COM-7
     private String pairedFeederId;   // COM-7: null = not paired
+    // The newest feeder/status from Firebase, and whether it has loaded yet
+    private java.util.Map<String, ?> lastStatus;
+    private boolean statusLoaded = false;
+    // The feeder cannot write "offline" once unplugged, so the card is re-checked every 15 s
+    private final android.os.Handler ticker = new android.os.Handler(android.os.Looper.getMainLooper());
+    private final Runnable tick = new Runnable() {
+        @Override public void run() {
+            showFoodLevel();
+            ticker.postDelayed(this, 15_000L);
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -84,6 +96,7 @@ public class ScheduleActivity extends Activity {
             @Override
             public void onConnectionChanged(boolean connected) {
                 showFeederStatus(connected);
+                showFoodLevel();
                 if (connected) {
                     // UI-8.3: the feeder also needs the meal limit for scheduled meals
                     feeder.send(FeederMessage.limitCommand(new SettingsStorage(ScheduleActivity.this).getMealLimit()));
@@ -129,17 +142,25 @@ public class ScheduleActivity extends Activity {
         super.onResume();
         feeder.start();
         showPairing();   // COM-7
+        ticker.post(tick);
         // COM-3.3: once on Wi-Fi, the feeder writes its food level to Firebase every 30 s
         String uid = FirebaseAuth.getInstance().getUid();
         if (uid != null) {
             statusCloud = new PetCloudRepository(uid);
             statusListener = statusCloud.listenToFeederStatus(status -> {
-                Integer percent = FoodLevel.fromStatus(status);
-                if (percent != null) runOnUiThread(() -> onFoodLevel(percent));
+                // Only trust the numbers while the feeder is online: an unplugged feeder
+                // leaves its last status in Firebase (for example 100%).
+                boolean online = FeederStatus.isOnline(status, System.currentTimeMillis());
+                Integer percent = online ? FoodLevel.fromStatus(status) : null;
 
-                // FD-3: show the current bowl weight
-                Number grams = status != null ? (Number) status.get("bowlGrams") : null;
-                runOnUiThread(() -> showBowlWeight(grams != null ? grams.intValue() : null));
+                // FD-3: show the current bowl weight (hidden while the feeder is off)
+                Number grams = online && status != null ? (Number) status.get("bowlGrams") : null;
+                runOnUiThread(() -> {
+                    lastStatus = status;
+                    statusLoaded = true;
+                    if (percent != null) onFoodLevel(percent); else showFoodLevel();
+                    showBowlWeight(grams != null ? grams.intValue() : null);
+                });
 
                 return Unit.INSTANCE;
             }, message -> Unit.INSTANCE);
@@ -150,6 +171,7 @@ public class ScheduleActivity extends Activity {
     protected void onPause() {
         super.onPause();
         feeder.stop();
+        ticker.removeCallbacks(tick);
         if (statusCloud != null && statusListener != null) statusCloud.removeFeederStatusListener(statusListener);
         statusCloud = null;
         statusListener = null;
@@ -203,6 +225,17 @@ public class ScheduleActivity extends Activity {
         ProgressBar bar = findViewById(R.id.progressFoodLevel);
         TextView note = findViewById(R.id.textFoodLevelNote);
         Integer percent = saved.getPercent();
+        // Feeder unplugged or not connected: say so instead of showing the old % as live
+        if (!feederOnline()) {
+            text.setText(statusLoaded ? "Off" : "--%");
+            text.setTextColor(getColor(R.color.text_secondary));
+            bar.setProgress(0);
+            String last = saved.getCheckedAt() > 0
+                    ? android.text.format.DateFormat.getTimeFormat(this).format(new Date(saved.getCheckedAt())) : null;
+            note.setText(statusLoaded ? FoodLevel.offlineNote(percent, last) : "Checking the feeder…");
+            note.setTextColor(getColor(R.color.text_secondary));
+            return;
+        }
         if (percent == null) {
             text.setText("--%");
             bar.setProgress(0);
@@ -218,6 +251,12 @@ public class ScheduleActivity extends Activity {
         note.setText(low ? "Low, refill the feeder · checked " + time : "Checked " + time);
         note.setTextColor(low ? 0xFFDC2626 : getColor(R.color.text_secondary));
     }
+    /** Online over Wi-Fi (status written in the last 90 s) or connected by Bluetooth. */
+    private boolean feederOnline() {
+        boolean bluetooth = feeder != null && feeder.isConnected();
+        return bluetooth || FeederStatus.isOnline(lastStatus, System.currentTimeMillis());
+    }
+
     /** COM-7: shows "Paired with PF-..." or "Not paired", and the right button text. */
     private void showPairing() {
         if (feederLink == null) return;

@@ -59,6 +59,15 @@ object FoodLevel {
         return if (value in 0..100) value else null
     }
 
+    /**
+     * Food left card when the feeder is unplugged or not connected: the old % is not shown
+     * as if it were live, only as "last level" with its time.
+     */
+    @JvmStatic
+    fun offlineNote(lastPercent: Int?, lastTime: String?): String =
+        if (lastPercent == null || lastTime == null) "Feeder is off or not connected."
+        else "Feeder is off or not connected. Last level $lastPercent% at $lastTime."
+
     /** The message for the alert box and the alert saved in Firebase. */
     @JvmStatic
     fun alertText(percent: Int): String = "Food is low ($percent% left). Refill the feeder."

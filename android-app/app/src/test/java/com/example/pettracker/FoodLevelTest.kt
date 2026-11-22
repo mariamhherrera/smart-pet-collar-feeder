@@ -51,4 +51,10 @@ class FoodLevelTest {
         assertNull(FoodLevel.fromStatus(mapOf("foodPercent" to 150L)))
         assertNull(FoodLevel.fromStatus(null))
     }
+
+    @Test
+    fun offlineFeederShowsLastLevelNotLive() {
+        assertEquals("Feeder is off or not connected.", FoodLevel.offlineNote(null, null))
+        assertEquals("Feeder is off or not connected. Last level 100% at 10:32.", FoodLevel.offlineNote(100, "10:32"))
+    }
 }

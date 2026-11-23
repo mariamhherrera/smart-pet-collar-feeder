@@ -8,7 +8,7 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:fitsSystemWindows="true"
-    android:background="@color/background">
+    android:background="@drawable/bg_screen">
 
     <include layout="@layout/top_bar" />
 
@@ -27,23 +27,51 @@
             android:paddingTop="20dp"
             android:paddingBottom="32dp">
 
-            <!-- ===== Greeting ===== -->
-            <TextView
-                android:id="@+id/textWelcome"
+            <!-- ===== Greeting, with the dog and cat drawing on the right ===== -->
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Welcome!"
-                style="@style/Pt.Body"
-                android:textSize="14sp" />
+                android:orientation="horizontal"
+                android:background="@drawable/bg_hero"
+                android:paddingStart="18dp"
+                android:paddingEnd="4dp"
+                android:paddingTop="8dp"
+                android:baselineAligned="false">
 
-            <TextView
-                android:id="@+id/textPetName"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Add your pet"
-                style="@style/Pt.Metric"
-                android:textSize="28sp"
-                android:layout_marginTop="2dp" />
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center_vertical"
+                    android:paddingBottom="8dp">
+
+                    <TextView
+                        android:id="@+id/textWelcome"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Welcome!"
+                        style="@style/Pt.Body"
+                        android:textSize="14sp" />
+
+                    <TextView
+                        android:id="@+id/textPetName"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Add your pet"
+                        style="@style/Pt.Metric"
+                        android:textSize="28sp"
+                        android:layout_marginTop="2dp" />
+                </LinearLayout>
+
+                <ImageView
+                    android:layout_width="150dp"
+                    android:layout_height="128dp"
+                    android:layout_gravity="bottom"
+                    android:src="@drawable/ill_home_pets"
+                    android:scaleType="fitEnd"
+                    android:importantForAccessibility="no" />
+            </LinearLayout>
 
             <!-- ===== Alert (COL-5, COL-6): left the safe zone, collar offline. Hidden when all is fine ===== -->
             <TextView

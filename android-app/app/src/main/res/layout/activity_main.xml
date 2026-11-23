@@ -5,7 +5,7 @@
     android:layout_height="match_parent"
     android:fillViewport="true"
     android:fitsSystemWindows="true"
-    android:background="@color/background">
+    android:background="@drawable/bg_screen">
 
     <LinearLayout
         android:layout_width="match_parent"

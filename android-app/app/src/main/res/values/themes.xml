@@ -8,7 +8,7 @@
         <item name="android:colorControlActivated">@color/primary</item>
 
         <!-- Background of every screen, and the phone's top bar -->
-        <item name="android:windowBackground">@color/background</item>
+        <item name="android:windowBackground">@drawable/bg_screen</item>
         <item name="android:statusBarColor">@color/primary_dark</item>
 
         <!-- Font from our Stitch design, on every screen -->

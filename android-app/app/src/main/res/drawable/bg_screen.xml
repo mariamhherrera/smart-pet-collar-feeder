@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Background of every screen: warm cream with faint paw prints repeated across it -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@color/background" />
+        </shape>
+    </item>
+    <item>
+        <bitmap
+            android:src="@drawable/bg_paw_tile"
+            android:tileMode="repeat" />
+    </item>
+</layer-list>

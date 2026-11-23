@@ -64,11 +64,12 @@ class CollarActivity : Activity(), BluetoothSppClient.Listener {
         textStatus = findViewById(R.id.textCollarStatus)
         textMotion = findViewById(R.id.textCollarMotion)
 
-        // Opens Google Maps (or any maps app) at the collar's last position. No API key needed.
+        // Opens the collar's last position in Google Maps: the app if installed, otherwise the browser.
+        // COL-9.4: a Google Maps web link, because some tablets sent the old "geo:" link to other apps (like Zoom).
         findViewById<Button>(R.id.buttonOpenMaps).setOnClickListener {
             val spot = lastLocation ?: return@setOnClickListener
             val place = "${spot.latitude},${spot.longitude}"
-            val uri = android.net.Uri.parse("geo:$place?q=$place(Pet)")
+            val uri = android.net.Uri.parse("https://www.google.com/maps/search/?api=1&query=$place")
             try {
                 startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, uri))
             } catch (e: android.content.ActivityNotFoundException) {

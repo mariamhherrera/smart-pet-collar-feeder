@@ -283,10 +283,9 @@ class CollarActivity : Activity(), BluetoothSppClient.Listener {
             return
         }
 
-        val (image, color, lightColor) = style
+        val (image, color, _) = style   // no circle behind the symbol any more, so the light colour is not used
         symbol.setImageResource(image)
         symbol.imageTintList = ColorStateList.valueOf(getColor(color))
-        symbol.backgroundTintList = ColorStateList.valueOf(getColor(lightColor))
         symbol.visibility = View.VISIBLE
 
         if (activity != shownActivity) {

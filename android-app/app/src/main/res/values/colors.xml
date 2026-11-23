@@ -7,11 +7,12 @@
     <color name="primary">#0D9488</color>
     <color name="primary_dark">#0F766E</color>
     <color name="primary_light">#CCFBF1</color>
-    <color name="background">#F8F9FF</color>
+    <color name="background">#FAF7F2</color>  <!-- warm cream -->
     <color name="text_primary">#0F172A</color>
     <color name="text_secondary">#475569</color>
     <color name="text_muted">#94A3B8</color>
-    <color name="card_border">#E2E8F0</color>
+    <color name="hero">#DDF3ED</color>  <!-- mint card behind the greeting on Home -->
+    <color name="card_border">#ECE6DC</color>  <!-- warm grey, goes with the cream -->
     <color name="tile">#EFF4FF</color>
 
     <!-- Orange: everything about feeding -->

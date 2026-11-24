@@ -19,6 +19,20 @@ class PetCloudRepository @JvmOverloads constructor(uid: String, private val coll
     private val root: DatabaseReference = FirebaseDatabase.getInstance().reference
     private val userRoot: DatabaseReference = root.child("owners").child(uid)
 
+    /** The pet profile shared by every phone on this account: owners/<uid>/pet/profile */
+    fun savePetProfile(profile: PetProfile) {
+        userRoot.child("pet").child("profile").setValue(PetProfileCloud.toMap(profile))
+    }
+
+    fun loadPetProfile(onValue: (PetProfile?) -> Unit, onError: (String) -> Unit) {
+        userRoot.child("pet").child("profile").addListenerForSingleValueEvent(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                onValue(PetProfileCloud.fromMap(snapshot.value as? Map<*, *>))
+            }
+            override fun onCancelled(error: DatabaseError) { onError(error.message) }
+        })
+    }
+
     /** The linked collar's newest reading (the collar overwrites it every 5 seconds). Null if no collar is linked. */
     private val collarLatest: DatabaseReference? =
         collarId?.let { root.child("collars").child(it).child("latest") }

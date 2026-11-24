@@ -79,6 +79,7 @@ class HomeActivity : Activity() {
         }
 
         setContentView(R.layout.activity_home)
+        PetNotifications.askPermission(this) // COM-6.1: Android 13+ asks once for notifications
 
         textConnection = findViewById(R.id.textConnection)
         textActivity = findViewById(R.id.textActivity)
@@ -256,6 +257,15 @@ class HomeActivity : Activity() {
         findViewById<TextView>(R.id.textPetName).text =
             profile?.name?.let { "Hi, $it!" } ?: "Add your pet"
 
+        // Same pet on every phone of this account: use the online profile if another phone changed it
+        PetProfileSync.sync(this, user.uid) { synced ->
+            runOnUiThread {
+                if (!isFinishing && synced != null && synced.name != profile?.name) {
+                    findViewById<TextView>(R.id.textPetName).text = "Hi, ${synced.name}!"
+                }
+            }
+        }
+
         showNextMeal()
         showMealsToday()
     }
@@ -352,6 +362,7 @@ class HomeActivity : Activity() {
         lastBattery = null
         val cloud = PetCloudRepository(uid, collarId)
         this.cloud = cloud
+        SafeZoneWatcher.start(this, uid, collarId) // COL-13.1: notification when the pet leaves the safe zone
 
         if (collarId == null) {
             showCollarOnline()

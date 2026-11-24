@@ -18,8 +18,8 @@ import java.util.Date
  *    Activity (COL-2.3): minutes walking + running per day, from the totals the
  *    collar sends every minute (collarDays/<collarId>).
  *  - Pick a day (UI-6.1): loads that day's saved readings and meals by date,
- *    then shows its movement graph. Sleep (COL-5) fills in once the collar sends
- *    its 1-minute summaries.
+ *    then shows its movement graph, and the sleep of the night before that day
+ *    with the 7 nights before it (COL-10.3, COL-14.2).
  * Readings for the movement graph are saved while the app is open (Home or Collar page).
  * The activity minutes are counted on the collar, so they are complete even when the app is closed.
  */
@@ -42,7 +42,7 @@ class HistoryActivity : Activity() {
         findViewById<SimpleChartView>(R.id.chartMeals).emptyText = "No meals in this period"
         findViewById<SimpleChartView>(R.id.chartActivity).emptyText = "Not enough collar data for this period"
         findViewById<SimpleChartView>(R.id.chartMovement).emptyText = "No collar readings on this day"
-        findViewById<SimpleChartView>(R.id.chartSleep).emptyText = "No sleep data yet (coming with COL-5)"
+        findViewById<SimpleChartView>(R.id.chartSleep).emptyText = "No sleep data for these nights"
 
         // Week / Month / Year buttons
         findViewById<RadioGroup>(R.id.rangeGroup).setOnCheckedChangeListener { _, checkedId ->
@@ -181,6 +181,13 @@ class HistoryActivity : Activity() {
             },
             onError = { }
         )
+        // COL-10.3 / COL-14.2: the night before this day, and the 7 nights up to it
+        val nights = SleepNights.lastSevenKeys(dayKey)
+        setText(R.id.textSleepSummary, "--")
+        cloud.loadCollarDays(nights.first(), dayKey,
+            onValue = { days -> runOnUiThread { if (day == selectedDay) showSleep(days, nights, dayKey) } },
+            onError = { }
+        )
         cloud.loadFeedingsBetween(day, dayEnd,
             onValue = { rows ->
                 runOnUiThread {
@@ -211,8 +218,19 @@ class HistoryActivity : Activity() {
                 getColor(R.color.primary), " g")
         }
 
-        // Sleep (COL-5): waits for the collar's 1-minute summaries
-        setText(R.id.textSleepSummary, "--")
+    }
+
+    /** Hours slept the night before the selected day, and a bar for each of the last 7 nights. */
+    private fun showSleep(days: Map<String, Map<*, *>>, nights: List<String>, dayKey: String) {
+        val minutes = SleepNights.sleepMinutes(days[dayKey])
+        setText(R.id.textSleepSummary,
+            if (minutes == null) "No data for that night"
+            else SleepNights.hoursText(minutes) + " · " + SleepNights.wakeUpsText(SleepNights.wakeUps(days[dayKey])))
+
+        val hours = SleepNights.hoursPerNight(days, nights)
+        val chart = findViewById<SimpleChartView>(R.id.chartSleep)
+        if (hours.all { it == 0f }) chart.setBars(FloatArray(0), arrayOf(), getColor(R.color.primary))
+        else chart.setBars(hours, SleepNights.labels(nights), getColor(R.color.primary), " h")
     }
 
     private fun setText(id: Int, text: String) {

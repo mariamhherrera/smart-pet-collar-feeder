@@ -114,6 +114,23 @@ class CollarActivity : Activity(), BluetoothSppClient.Listener {
             onValue = { row -> runOnUiThread { CollarReading.fromMap(row)?.let { show(it) } } },
             onError = { message -> runOnUiThread { textStatus.text = "Firebase error: $message" } }
         )
+
+        // COL-10.3: last night = today's entry (the collar saves each night under the morning's date)
+        val today = HistoryRange.dayKey(System.currentTimeMillis())
+        cloud.loadCollarDays(today, today,
+            onValue = { days -> runOnUiThread { showSleep(days[today]) } },
+            onError = { }
+        )
+    }
+
+    /** COL-10.3 / COL-14.2: hours slept and wake-ups last night (10 PM to 7 AM). */
+    private fun showSleep(today: Map<*, *>?) {
+        val minutes = SleepNights.sleepMinutes(today)
+        findViewById<TextView>(R.id.textSleepHours).text =
+            if (minutes == null) "--" else SleepNights.hoursText(minutes)
+        findViewById<TextView>(R.id.textSleepDetail).text =
+            if (minutes == null) "No sleep data for last night yet"
+            else SleepNights.wakeUpsText(SleepNights.wakeUps(today)) + " · 10 PM to 7 AM"
     }
 
     private fun stopListening() {

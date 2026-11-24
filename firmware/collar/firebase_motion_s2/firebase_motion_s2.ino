@@ -13,6 +13,9 @@
        and today's minutes to Firebase:  collars/<collar ID>/latest
     5. Every minute: sends today's totals to  collarDays/<collar ID>/<date>
        for the History graphs.
+    6. At night (10 PM to 7 AM): counts the minutes asleep and the wake-ups
+       (COL-10, COL-14, see sleep.h). In the morning they are added to that
+       day's entry: collarDays/<collar ID>/<date> sleepMinutes, wakeUps
 
   Pairing (COM-4):
     Every collar has its own ID, like PC-3C71F2 (printed on Serial at start).
@@ -36,6 +39,7 @@
 #include <time.h>
 #include "secrets.h"
 #include "activity.h"
+#include "sleep.h"
 
 // ---------- Settings ----------
 
@@ -71,6 +75,13 @@ struct DayTotals {
   uint32_t seconds[3];
 };
 
+// COL-10.2: one night, saved under the date of the morning it ends on
+struct NightTotals {
+  char date[11];
+  uint16_t sleepMinutes;
+  uint16_t wakeUps;
+};
+
 MotionReading latestMotion;
 
 bool haveReading = false;
@@ -80,6 +91,10 @@ Activity currentActivity = RESTING;
 float currentPace = 0;
 
 uint32_t todaySeconds[3] = {0, 0, 0};
+
+// COL-10.1: the 4 s windows of the current minute (filled by the sensor task)
+uint16_t minuteWindows = 0;
+uint16_t minuteRestingWindows = 0;
 
 int batteryPercent = -1;
 float batteryVoltage = 0;
@@ -120,6 +135,13 @@ String currentDate;
 
 DayTotals pendingDays[MAX_PENDING_DAYS];
 int pendingCount = 0;
+
+// COL-10 / COL-14: the night in progress and the nights not sent yet
+SleepCounter sleepNight;
+String nightDate;          // morning date of the night in progress, "" during the day
+
+NightTotals pendingNights[MAX_PENDING_DAYS];
+int pendingNightCount = 0;
 
 String firebaseToken;
 
@@ -343,6 +365,10 @@ void sensorTask(void *unused) {
 
       todaySeconds[currentActivity] += WINDOW_SECONDS;
 
+      // COL-10.1: count this minute's windows for the sleep check
+      minuteWindows++;
+      if (currentActivity == RESTING) minuteRestingWindows++;
+
       haveActivity = true;
     }
 
@@ -427,6 +453,18 @@ void gpsTask(void *unused) {
 
 // ---------- Clock and days ----------
 
+String dateOf(time_t moment) {
+  struct tm local;
+
+  localtime_r(&moment, &local);
+
+  char text[11];
+
+  strftime(text, sizeof(text), "%Y-%m-%d", &local);
+
+  return String(text);
+}
+
 String todayDate() {
   time_t now = time(nullptr);
 
@@ -458,6 +496,12 @@ void saveToMemory() {
   memory.putBytes("today", copy, sizeof(copy));
   memory.putInt("pendingCount", pendingCount);
   memory.putBytes("pending", pendingDays, sizeof(pendingDays));
+
+  // COL-10: so a restart in the middle of the night does not lose it
+  memory.putString("nightDate", nightDate);
+  memory.putBytes("sleep", &sleepNight, sizeof(sleepNight));
+  memory.putInt("nightCount", pendingNightCount);
+  memory.putBytes("nights", pendingNights, sizeof(pendingNights));
 }
 
 void loadFromMemory() {
@@ -476,6 +520,17 @@ void loadFromMemory() {
   }
 
   memory.getBytes("pending", pendingDays, sizeof(pendingDays));
+
+  nightDate = memory.getString("nightDate", "");
+  memory.getBytes("sleep", &sleepNight, sizeof(sleepNight));
+
+  pendingNightCount = memory.getInt("nightCount", 0);
+
+  if (pendingNightCount < 0 || pendingNightCount > MAX_PENDING_DAYS) {
+    pendingNightCount = 0;
+  }
+
+  memory.getBytes("nights", pendingNights, sizeof(pendingNights));
 
   Serial.printf(
     "Restored %s: resting %lu s, walking %lu s, running %lu s, %d unsent days\n",
@@ -568,6 +623,129 @@ void checkNewDay() {
   currentDate = today;
 
   saveToMemory();
+}
+
+// ---------- Sleep (COL-10, COL-14) ----------
+
+void addPendingNight(const NightTotals &night) {
+  if (pendingNightCount == MAX_PENDING_DAYS) {
+    for (int i = 1; i < MAX_PENDING_DAYS; i++) {
+      pendingNights[i - 1] = pendingNights[i];
+    }
+
+    pendingNightCount--;
+  }
+
+  pendingNights[pendingNightCount++] = night;
+}
+
+void removeOldestPendingNight() {
+  for (int i = 1; i < pendingNightCount; i++) {
+    pendingNights[i - 1] = pendingNights[i];
+  }
+
+  pendingNightCount--;
+}
+
+// The night is over: keep its totals to send to Firebase
+void finishNight() {
+  NightTotals night;
+
+  strncpy(night.date, nightDate.c_str(), sizeof(night.date));
+  night.date[10] = '\0';
+
+  night.sleepMinutes = sleepNight.sleepMinutes;
+  night.wakeUps = sleepNight.wakeUps;
+
+  addPendingNight(night);
+
+  Serial.printf(
+    "Night before %s done: %d h %02d min asleep, %d wake-ups. It will be sent to Firebase.\n",
+    night.date,
+    night.sleepMinutes / 60,
+    night.sleepMinutes % 60,
+    night.wakeUps
+  );
+
+  sleepNight.reset();
+  nightDate = "";
+
+  saveToMemory();
+}
+
+// Called often from loop(): when a full minute of activity is ready, add it to the night
+void checkSleepMinute() {
+  lockData();
+
+  uint16_t windows = minuteWindows;
+  uint16_t restingWindows = minuteRestingWindows;
+
+  if (windows >= WINDOWS_PER_MINUTE) {
+    minuteWindows = 0;
+    minuteRestingWindows = 0;
+  }
+
+  unlockData();
+
+  if (windows < WINDOWS_PER_MINUTE) {
+    return;
+  }
+
+  time_t now = time(nullptr);
+
+  if (now < 1700000000) {
+    return;   // the clock is not set yet (no Wi-Fi since the collar was turned on)
+  }
+
+  struct tm local;
+
+  localtime_r(&now, &local);
+
+  // Daytime: if a night was in progress, it is over
+  if (!isNightHour(local.tm_hour)) {
+    if (!nightDate.isEmpty()) {
+      finishNight();
+    }
+
+    return;
+  }
+
+  // Which night is this? Saved under the date of the morning it ends on
+  // (Nov 22 at 10 PM to Nov 23 at 7 AM is saved as Nov 23)
+  time_t morning = local.tm_hour >= NIGHT_START_HOUR ? now + 24L * 3600 : now;
+  String thisNight = dateOf(morning);
+
+  if (nightDate != thisNight) {
+    if (!nightDate.isEmpty()) {
+      finishNight();   // an older night was never closed (collar off in the morning)
+    }
+
+    nightDate = thisNight;
+    sleepNight.reset();
+
+    Serial.printf("Night started (saved as %s)\n", nightDate.c_str());
+  }
+
+  bool resting = isRestingMinute(restingWindows, windows);
+
+  if (sleepNight.addMinute(resting)) {
+    Serial.printf(
+      "Wake-up #%d at %02d:%02d\n",
+      sleepNight.wakeUps,
+      local.tm_hour,
+      local.tm_min
+    );
+  }
+
+  if (local.tm_min % 15 == 0) {
+    Serial.printf(
+      "Night so far: %d h %02d min asleep, %d wake-ups (%s now)\n",
+      sleepNight.sleepMinutes / 60,
+      sleepNight.sleepMinutes % 60,
+      sleepNight.wakeUps,
+      sleepNight.asleep ? "asleep" : "awake"
+    );
+  }
 }
 
 // ---------- Wi-Fi ----------
@@ -884,6 +1062,45 @@ String dayJson(const uint32_t seconds[3]) {
   return json;
 }
 
+// ---------- Upload sleep (COL-10.2) ----------
+
+String nightJson(const NightTotals &night) {
+  JsonDocument row;
+
+  row["sleepMinutes"] = night.sleepMinutes;
+  row["wakeUps"] = night.wakeUps;
+
+  String json;
+
+  serializeJson(row, json);
+
+  return json;
+}
+
+void uploadNights() {
+  while (pendingNightCount > 0 && !firebaseToken.isEmpty()) {
+    NightTotals &night = pendingNights[0];
+
+    // PATCH adds the sleep to that day's entry without removing its activity totals
+    if (
+      sendToFirebase(
+        "PATCH",
+        "collarDays/" + collarId + "/" + String(night.date),
+        nightJson(night)
+      ) != 200
+    ) {
+      return;
+    }
+
+    Serial.printf(
+      "Sent the sleep of the night before %s\n",
+      night.date
+    );
+
+    removeOldestPendingNight();
+  }
+}
+
 // ---------- Upload daily totals ----------
 
 void uploadDays() {
@@ -895,7 +1112,7 @@ void uploadDays() {
 
     if (
       sendToFirebase(
-        "PUT",
+        "PATCH",   // PATCH, not PUT: keeps the night's sleep in the same entry
         path,
         dayJson(day.seconds)
       ) != 200
@@ -922,7 +1139,7 @@ void uploadDays() {
   unlockData();
 
   sendToFirebase(
-    "PUT",
+    "PATCH",
     "collarDays/" + collarId + "/" + currentDate,
     dayJson(seconds)
   );
@@ -1015,6 +1232,7 @@ void loop() {
   uint32_t now = millis();
 
   checkNewDay();
+  checkSleepMinute();   // COL-10.1 / COL-14.1, works without Wi-Fi once the clock is set
 
   if (now - lastDayMs >= DAY_INTERVAL_MS) {
     lastDayMs = now;
@@ -1068,6 +1286,7 @@ void loop() {
   if (daysDue) {
     daysDue = false;
 
+    uploadNights();
     uploadDays();
   }
 

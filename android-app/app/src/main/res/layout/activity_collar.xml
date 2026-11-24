@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- UI-5 Collar page: connection, battery, location and safe zone (COL-6), sleep (COL-5), activity (COL-2). -->
+<!-- UI-5 Collar page: connection, battery, location and safe zone (COL-6), sleep (COL-10, COL-14), activity (COL-2). -->
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
@@ -175,7 +175,7 @@
                     android:layout_marginTop="14dp" />
             </LinearLayout>
 
-            <!-- ===== Sleep last night (COL-5, from the collar's 1-minute summaries) ===== -->
+            <!-- ===== Sleep last night (COL-10.3, COL-14.2: hours slept and wake-ups from the collar) ===== -->
             <LinearLayout
                 style="@style/Pt.Card"
                 android:layout_width="match_parent"

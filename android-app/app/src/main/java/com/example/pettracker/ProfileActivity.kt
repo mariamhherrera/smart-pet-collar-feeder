@@ -73,6 +73,8 @@ class ProfileActivity : Activity() {
             findViewById<Button>(R.id.buttonSaveProfile)
 
         loadProfile()
+        // The profile may have been changed on another phone: show the account's copy
+        PetProfileSync.sync(this, auth.currentUser!!.uid) { runOnUiThread { if (!isFinishing) loadProfile() } }
 
         buttonSave.setOnClickListener {
             saveProfile()
@@ -317,6 +319,8 @@ class ProfileActivity : Activity() {
         val saved = database.savePetProfile(uid, profile)
 
         if (saved) {
+            // Same profile on every phone logged into this account
+            PetCloudRepository(uid).savePetProfile(profile)
 
             Toast.makeText(
                 this,

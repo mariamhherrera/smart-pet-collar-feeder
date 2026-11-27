@@ -125,12 +125,20 @@ class CollarActivity : Activity(), BluetoothSppClient.Listener {
 
     /** COL-10.3 / COL-14.2: hours slept and wake-ups last night (10 PM to 7 AM). */
     private fun showSleep(today: Map<*, *>?) {
-        val minutes = SleepNights.sleepMinutes(today)
+        val night = SleepNights.sleepMinutes(today)
+        val naps = SleepNights.napMinutes(today)
+        val total = (night ?: 0L) + naps
+
         findViewById<TextView>(R.id.textSleepHours).text =
-            if (minutes == null) "--" else SleepNights.hoursText(minutes)
-        findViewById<TextView>(R.id.textSleepDetail).text =
-            if (minutes == null) "No sleep data for last night yet"
-            else SleepNights.wakeUpsText(SleepNights.wakeUps(today)) + " · 10 PM to 7 AM"
+            if (night == null && naps == 0L) "--" else SleepNights.hoursText(total)
+        findViewById<TextView>(R.id.textSleepDetail).text = when {
+            night == null && naps == 0L -> "No sleep data yet"
+            naps == 0L -> "${SleepNights.hoursText(night!!)} at night · " +
+                    SleepNights.wakeUpsText(SleepNights.wakeUps(today))
+
+            night == null -> "${SleepNights.hoursText(naps)} in naps today"
+            else -> "${SleepNights.hoursText(night)} night + ${SleepNights.hoursText(naps)} naps"
+        }
     }
 
     private fun stopListening() {

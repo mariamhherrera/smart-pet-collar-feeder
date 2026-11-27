@@ -76,10 +76,12 @@ struct DayTotals {
 };
 
 // COL-10.2: one night, saved under the date of the morning it ends on
-struct NightTotals {
+struct SleepTotals {
   char date[11];
-  uint16_t sleepMinutes;
-  uint16_t wakeUps;
+  uint16_t nightMinutes;
+  uint16_t nightWakeUps;
+  uint16_t napMinutes;
+  uint16_t napCount;  // separate naps (periods of sleep ≥ 10 min)
 };
 
 MotionReading latestMotion;
@@ -137,11 +139,13 @@ DayTotals pendingDays[MAX_PENDING_DAYS];
 int pendingCount = 0;
 
 // COL-10 / COL-14: the night in progress and the nights not sent yet
-SleepCounter sleepNight;
-String nightDate;          // morning date of the night in progress, "" during the day
+SleepCounter sleepNight; // 10 PM → 7 AM
+SleepCounter sleepDay;   // 7 AM → 10 PM
+String nightDate;        // morning the night belongs to 
+String dayDate;        // calendar day for naps (today)
 
-NightTotals pendingNights[MAX_PENDING_DAYS];
-int pendingNightCount = 0;
+SleepTotals pendingSleep[MAX_PENDING_DAYS];
+int pendingSleepCount = 0;
 
 String firebaseToken;
 
@@ -673,80 +677,100 @@ void finishNight() {
   saveToMemory();
 }
 
-// Called often from loop(): when a full minute of activity is ready, add it to the night
+void finishNight() {
+  // merge into today's pendingSleep (or create new entry for nightDate)
+  int idx = findOrCreatePendingSleep(nightDate);
+  pendingSleep[idx].nightMinutes = sleepNight.sleepMinutes;
+  pendingSleep[idx].nightWakeUps = sleepNight.wakeUps;
+  Serial.printf("Night before %s: %d h %02d min, %d wake-ups\n",
+    nightDate.c_str(), sleepNight.sleepMinutes / 60,
+    sleepNight.sleepMinutes % 60, sleepNight.wakeUps);
+  sleepNight.reset();
+  nightDate = "";
+  saveToMemory();
+}
+
+void finishDay() {
+  int idx = findOrCreatePendingSleep(dayDate);
+  pendingSleep[idx].napMinutes = sleepDay.sleepMinutes;
+  pendingSleep[idx].napCount   = sleepDay.wakeUps + (sleepDay.asleep ? 1 : 0);
+  Serial.printf("Naps on %s: %d h %02d min total, %d separate naps\n",
+    dayDate.c_str(), sleepDay.sleepMinutes / 60,
+    sleepDay.sleepMinutes % 60, pendingSleep[idx].napCount);
+  sleepDay.reset();
+  dayDate = "";
+  saveToMemory();
+}
+
 void checkSleepMinute() {
   lockData();
-
   uint16_t windows = minuteWindows;
   uint16_t restingWindows = minuteRestingWindows;
-
   if (windows >= WINDOWS_PER_MINUTE) {
     minuteWindows = 0;
     minuteRestingWindows = 0;
   }
-
   unlockData();
-
-  if (windows < WINDOWS_PER_MINUTE) {
-    return;
-  }
+  if (windows < WINDOWS_PER_MINUTE) return;
 
   time_t now = time(nullptr);
-
-  if (now < 1700000000) {
-    return;   // the clock is not set yet (no Wi-Fi since the collar was turned on)
-  }
+  if (now < 1700000000) return;
 
   struct tm local;
-
   localtime_r(&now, &local);
-
-  // Daytime: if a night was in progress, it is over
-  if (!isNightHour(local.tm_hour)) {
-    if (!nightDate.isEmpty()) {
-      finishNight();
-    }
-
-    return;
-  }
-
-  // Which night is this? Saved under the date of the morning it ends on
-  // (Nov 22 at 10 PM to Nov 23 at 7 AM is saved as Nov 23)
-  time_t morning = local.tm_hour >= NIGHT_START_HOUR ? now + 24L * 3600 : now;
-  String thisNight = dateOf(morning);
-
-  if (nightDate != thisNight) {
-    if (!nightDate.isEmpty()) {
-      finishNight();   // an older night was never closed (collar off in the morning)
-    }
-
-    nightDate = thisNight;
-    sleepNight.reset();
-
-    Serial.printf("Night started (saved as %s)\n", nightDate.c_str());
-  }
 
   bool resting = isRestingMinute(restingWindows, windows);
 
-  if (sleepNight.addMinute(resting)) {
-    Serial.printf(
-      "Wake-up #%d at %02d:%02d\n",
-      sleepNight.wakeUps,
-      local.tm_hour,
-      local.tm_min
-    );
-  }
-
-  if (local.tm_min % 15 == 0) {
-    Serial.printf(
-      "Night so far: %d h %02d min asleep, %d wake-ups (%s now)\n",
-      sleepNight.sleepMinutes / 60,
-      sleepNight.sleepMinutes % 60,
-      sleepNight.wakeUps,
-      sleepNight.asleep ? "asleep" : "awake"
-    );
+  if (isNightHour(local.tm_hour)) {
+    // We're in the night window
+    if (!dayDate.isEmpty()) finishDay();        // leaving the day
+    time_t morning = local.tm_hour >= NIGHT_START_HOUR ? now + 24L * 3600 : now;
+    String thisNight = dateOf(morning);
+    if (nightDate != thisNight) {
+      if (!nightDate.isEmpty()) finishNight();
+      nightDate = thisNight;
+      sleepNight.reset();
+      Serial.printf("Night started (saved as %s)\n", nightDate.c_str());
+    }
+    if (sleepNight.addMinute(resting)) {
+      Serial.printf("Wake-up #%d at %02d:%02d\n",
+        sleepNight.wakeUps, local.tm_hour, local.tm_min);
+    }
+  } else {
+    // We're in the day window
+    if (!nightDate.isEmpty()) finishNight();     // leaving the night
+    String today = dateOf(now);
+    if (dayDate != today) {
+      if (!dayDate.isEmpty()) finishDay();
+      dayDate = today;
+      sleepDay.reset();
+      Serial.printf("Day started (naps tracked for %s)\n", dayDate.c_str());
+    }
+    bool wasAsleep = sleepDay.asleep;
+    sleepDay.addMinute(resting);
+    if (wasAsleep && !sleepDay.asleep) {
+      Serial.printf("Nap ended at %02d:%02d (%d min)\n",
+        local.tm_hour, local.tm_min, sleepDay.sleepMinutes);
+    }
   }
 }
+
+int findOrCreatePendingSleep(const String &date) {
+  for (int i = 0; i < pendingSleepCount; i++) {
+    if (date == pendingSleep[i].date) return i;
+  }
+  if (pendingSleepCount == MAX_PENDING_DAYS) {
+    for (int i = 1; i < MAX_PENDING_DAYS; i++) pendingSleep[i-1] = pendingSleep[i];
+    pendingSleepCount--;
+  }
+  SleepTotals &s = pendingSleep[pendingSleepCount];
+  strncpy(s.date, date.c_str(), 10); s.date[10] = '\0';
+  s.nightMinutes = s.nightWakeUps = s.napMinutes = s.napCount = 0;
+  return pendingSleepCount++;
+}
+
+
+
 
 // ---------- Wi-Fi ----------
 
@@ -1064,16 +1088,13 @@ String dayJson(const uint32_t seconds[3]) {
 
 // ---------- Upload sleep (COL-10.2) ----------
 
-String nightJson(const NightTotals &night) {
+String sleepJson(const SleepTotals &s) {
   JsonDocument row;
-
-  row["sleepMinutes"] = night.sleepMinutes;
-  row["wakeUps"] = night.wakeUps;
-
-  String json;
-
-  serializeJson(row, json);
-
+  row["sleepMinutes"] = s.nightMinutes;   // kept name for app compatibility
+  row["wakeUps"]      = s.nightWakeUps;
+  row["napMinutes"]   = s.napMinutes;
+  row["napCount"]     = s.napCount;
+  String json; serializeJson(row, json);
   return json;
 }
 

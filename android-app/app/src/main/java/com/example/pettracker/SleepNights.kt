@@ -50,4 +50,13 @@ object SleepNights {
         val name = SimpleDateFormat("EEE", Locale.getDefault())
         return Array(keys.size) { name.format(parse.parse(keys[it])!!) }
     }
+    fun napMinutes(day: Map<*, *>?): Long = (day?.get("napMinutes") as? Number)?.toLong() ?: 0L
+    fun napCount(day: Map<*, *>?): Long   = (day?.get("napCount") as? Number)?.toLong() ?: 0L
+
+    fun totalHoursText(day: Map<*, *>?): String {
+        val total = (sleepMinutes(day) ?: 0L) + napMinutes(day)
+        return hoursText(total)
+    }
+
+
 }

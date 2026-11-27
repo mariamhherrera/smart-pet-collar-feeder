@@ -14,7 +14,8 @@ object FeedingHistory {
 
     enum class State { GIVEN, WAITING, NO_REPLY, FAILED }
 
-    data class Meal(val time: Long, val portion: Int, val source: String, val state: State, val grams: Int?)
+    data class Meal(val time: Long, val portion: Int, val source: String, val state: State, val grams: Int?,
+                    val reason: String? = null)
 
     /** A meal still pending after 2 minutes probably never reached the feeder. */
     const val NO_REPLY_AFTER_MS = 2 * 60_000L
@@ -38,7 +39,8 @@ object FeedingHistory {
             }
             val portion = (row["portion"] as? Number)?.toInt() ?: 2
             val grams = (row["grams"] as? Number)?.toInt()
-            Meal(time, portion, row["source"]?.toString() ?: "", state, grams)
+            val reason = if (state == State.FAILED) failReason(row["result"]?.toString()) else null
+            Meal(time, portion, row["source"]?.toString() ?: "", state, grams, reason)
         }.sortedByDescending { it.time }
 
     /** Meals grouped by day (midnight of that day), newest day first. */
@@ -58,6 +60,15 @@ object FeedingHistory {
         "feed_now", "manual" -> "Feed Now"
         "scheduled" -> "Scheduled"
         else -> "Meal"
+    }
+
+    /** FD-7.1: why a failed meal was not given, in plain words (null if the feeder gave no reason). */
+    @JvmStatic
+    fun failReason(result: String?): String? = when (result?.trim()?.uppercase()) {
+        null, "" -> null
+        "ERR DAILY LIMIT" -> "Daily meal limit reached"
+        "ERR COOLDOWN" -> "Too soon after the last meal"
+        else -> MealAlerts.reason(result)
     }
 
     @JvmStatic

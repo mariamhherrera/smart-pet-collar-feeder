@@ -25,6 +25,7 @@ object PetNotifications {
 
     /** One id per kind of alert: a new alert of the same kind replaces the old one. */
     const val ID_SAFE_ZONE = 1001
+    const val ID_FAILED_MEAL = 1002 // FD-7.1
 
     /** Android 13 and newer ask the owner once. Called from Home, the first page after login. */
     fun askPermission(activity: Activity) {
@@ -39,15 +40,18 @@ object PetNotifications {
             PackageManager.PERMISSION_GRANTED
 
     @SuppressLint("MissingPermission") // checked just above with allowed()
-    fun show(context: Context, id: Int, title: String, text: String) {
+    fun show(
+        context: Context, id: Int, title: String, text: String,
+        opens: Class<out Activity> = HomeActivity::class.java // the page a tap opens
+    ) {
         if (!allowed(context)) return
         createChannel(context)
 
-        // Tapping the notification opens Home
+        // Tapping the notification opens Home (or the page given in opens)
         val openApp = PendingIntent.getActivity(
             context, id,
-            Intent(context, HomeActivity::class.java)
-                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            Intent(context, opens)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
@@ -55,6 +59,7 @@ object PetNotifications {
             .setSmallIcon(R.drawable.ic_pets)
             .setContentTitle(title)
             .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setContentIntent(openApp)
             .setAutoCancel(true)

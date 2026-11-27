@@ -112,6 +112,12 @@ class FeedingHistoryActivity : Activity() {
         detail.text = "${FeedingHistory.portionName(meal.portion)} portion$gramsPart · ${FeedingHistory.sourceName(meal.source)}"
         left.addView(time)
         left.addView(detail)
+        if (meal.reason != null) {                       // FD-7.1: why it failed
+            val why = TextView(this, null, 0, R.style.Pt_Body)
+            why.text = meal.reason
+            why.setTextColor(getColor(R.color.heart))
+            left.addView(why)
+        }
 
         val (textColor, background) = when (meal.state) {
             FeedingHistory.State.GIVEN -> 0xFF15803D.toInt() to 0xFFDCFCE7.toInt()
